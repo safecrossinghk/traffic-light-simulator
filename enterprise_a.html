@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>紅綠燈模擬</title>
+<style>
+body { font-family: sans-serif; text-align: center; background-color: #f0f0f0; }
+#trafficLight { margin-top: 50px; font-size: 2em; }
+.light { width: 100px; height: 100px; border-radius: 50%; margin: 10px auto; }
+.red { background-color: gray; }
+.green { background-color: gray; }
+.active-red { background-color: red; }
+.active-green { background-color: green; }
+</style>
+</head>
+<body>
+<h1>紅綠燈模擬 - 高德地圖實時數據</h1>
+<div id="trafficLight">
+<div id="redLight" class="light red"></div>
+<div id="greenLight" class="light green"></div>
+<p id="status">正在載入交通燈狀態...</p>
+</div>
+<script>
+async function fetchTrafficStatus() {
+const key = "c739c1ac829fc2acf00599662cca95f9";
+const location = "113.9336,22.3182"; // 荔枝角示範位置
+const url = `https://restapi.amap.com/v4/trafficlight?location=${location}&key=${key}`;
+
+try {
+const res = await fetch(url);
+const data = await res.json();
+const status = data?.data?.[0]?.status;
+
+document.getElementById("status").innerText =
+status === "1" ? "紅燈" :
+status === "2" ? "綠燈" :
+"未知狀態";
+
+document.getElementById("redLight").className =
+status === "1" ? "light red active-red" : "light red";
+
+document.getElementById("greenLight").className =
+status === "2" ? "light green active-green" : "light green";
+
+} catch (error) {
+document.getElementById("status").innerText = "錯誤：無法取得實時數據";
+}
+}
+
+setInterval(fetchTrafficStatus, 5000); // 每 5 秒更新一次
+fetchTrafficStatus();
+</script>
+</body>
+</html>
