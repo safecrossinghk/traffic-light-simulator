@@ -1,0 +1,55 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>紅綠燈模擬</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; background-color: #f9f9f9; }
+    #map { width: 100%; height: 300px; margin-top: 20px; }
+    #light { margin: 20px auto; width: 100px; height: 100px; border-radius: 50%; background-color: red; animation: blink 1s infinite alternate; }
+    @keyframes blink { 0% { opacity: 1; } 100% { opacity: 0.3; } }
+    .button { padding: 10px 20px; font-size: 16px; margin: 10px; }
+    #countdown { font-size: 48px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>紅綠燈模擬</h1>
+  <button class="button" onclick="toggleVoice()">語音切換</button>
+  <div id="light"></div>
+  <div id="countdown">10</div>
+  <div id="map"></div>
+
+  <script>
+    let countdown = 10;
+    let interval = setInterval(() => {
+      countdown--;
+      document.getElementById('countdown').textContent = countdown;
+      if (countdown <= 0) {
+        countdown = 10;
+        document.getElementById('light').style.backgroundColor =
+          document.getElementById('light').style.backgroundColor === 'red' ? 'green' : 'red';
+      }
+    }, 1000);
+
+    let voice = 'yue';
+    function toggleVoice() {
+      voice = voice === 'yue' ? 'en' : 'yue';
+      let msg = new SpeechSynthesisUtterance(
+        voice === 'yue' ? '綠燈亮起，可以過馬路' : 'Green light on, you may cross'
+      );
+      msg.lang = voice === 'yue' ? 'zh-HK' : 'en-US';
+      speechSynthesis.speak(msg);
+    }
+  </script>
+
+  <script src="https://webapi.amap.com/maps?v=2.0&key=96b98e6882a7f6d0fa4b5a5f3a4e6b18"></script>
+  <script>
+    var map = new AMap.Map('map', {
+      zoom: 16,
+      center: [114.1538, 22.3215]
+    });
+  </script>
+</body>
+</html>
