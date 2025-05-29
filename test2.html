@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <title>紅綠燈模擬</title>
+    <script src="https://webapi.amap.com/maps?v=2.0&key=36b5cc1b617af9a0df235ec9f11c447e"></script>
+</head>
+<body>
+    <h1>紅綠燈模擬系統</h1>
+    <p>整合高德地圖與模擬 JSON 數據</p>
+    <script>
+        fetch('sim_data.json')
+            .then(response => response.json())
+            .then(data => {
+                console.log("模擬紅綠燈數據：", data);
+                // 可在此加入倒數、動畫、語音邏輯
+            });
+    </script>
+</body>
+</html>
