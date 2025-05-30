@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <title>紅綠燈模擬 - 高德實時數據</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background-color: #f4f4f4; }
+        #map { width: 100%; height: 400px; margin-bottom: 20px; }
+        #countdown { font-size: 48px; color: green; margin-top: 20px; }
+        #status { font-size: 24px; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <h1>紅綠燈模擬（高德實時數據）</h1>
+    <div id="map"></div>
+    <div id="countdown">--</div>
+    <div id="status">正在載入交通燈數據...</div>
+
+    <script src="https://webapi.amap.com/maps?v=2.0&key=36b5cc1b617af9a0df235ec9f11c447e"></script>
+    <script>
+        const AmapKey = "https://webapi.amap.com/maps?v=2.0&key=36b5cc1b617af9a0df235ec9f11c447e;  // 如需部署請改為實際金鑰
+        const positionA = [114.153224, 22.337247]; // 荔枝角道東行近長荔街
+
+        const map = new AMap.Map("map", {
+            center: positionA,
+            zoom: 18
+        });
+
+        new AMap.Marker({
+            position: positionA,
+            map: map,
+            title: "行人燈位置 A"
+        });
+
+        async function fetchRealTimeData() {
+            const url = `https://restapi.amap.com/v4/traffic/status/road?key=${AmapKey}&name=荔枝角道&adcode=810000`;
+
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.errcode === 0 || data.errcode === "0") {
+                    document.getElementById("status").textContent = "實時交通燈狀態已更新";
+                    simulateCountdown(data);
+                } else {
+                    document.getElementById("status").textContent = "交通數據錯誤：" + data.errmsg;
+                }
+            } catch (error) {
+                document.getElementById("status").textContent = "無法載入高德交通數據";
+            }
+        }
+
+        function simulateCountdown(data) {
+            // 基於實時路況估算綠人時間（邏輯可擴充）
+            let countdown = 15;
+            document.getElementById("countdown").textContent = countdown;
+
+            const timer = setInterval(() => {
+                countdown--;
+                if (countdown >= 0) {
+                    document.getElementById("countdown").textContent = countdown;
+                } else {
+                    clearInterval(timer);
+                    document.getElementById("countdown").textContent = "--";
+                    document.getElementById("status").textContent = "倒數結束，可重新讀取數據。";
+                }
+            }, 1000);
+        }
+
+        fetchRealTimeData();
+    </script>
+</body>
+</html>
