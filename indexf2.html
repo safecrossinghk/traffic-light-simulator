@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>人流狀況模擬</title>
+<style>
+body { font-family: sans-serif; text-align: center; margin: 20px; }
+#status { font-size: 1.5em; margin: 20px; }
+.lang-btn, .place-btn { margin: 5px; padding: 10px 15px; font-size: 1em; }
+</style>
+</head>
+<body>
+<h1>即時人流狀況</h1>
+<div>
+<button class="lang-btn" onclick="setLanguage('zh')">中文</button>
+<button class="lang-btn" onclick="setLanguage('en')">English</button>
+</div>
+<div id="place-buttons"></div>
+<div id="status">載入中...</div>
+
+<script>
+const apiKey = 'AIzaSyDxXY7DgKxnM7tPMYGo8_wJQYCBTZ2Ae_E'; // 展示用金鑰
+let currentLang = 'zh';
+let currentPlaceId = '';
+
+const messages = {
+zh: {
+crowded: "現場人流較多",
+normal: "現場人流正常",
+loading: "載入中...",
+error: "無法取得人流資訊"
+},
+en: {
+crowded: "Crowded at the moment",
+normal: "Normal crowd level",
+loading: "Loading...",
+error: "Unable to fetch crowd data"
+}
+};
+
+const places = [
+{ name: "羅湖站", placeId: "ChIJi6CqEWeZAzQRQwqLtzfZMRk" },
+{ name: "落馬洲站", placeId: "ChIJd7zN3XqZAzQR2kZ1L0pWb5g" },
+{ name: "香園圍口岸", placeId: "ChIJx0b8X3mZAzQR1Z1L0pWb5g" }
+];
+
+function setLanguage(lang) {
+currentLang = lang;
+renderPlaceButtons();
+updateStatus(currentPlaceId);
+}
+
+function renderPlaceButtons() {
+const container = document.getElementById('place-buttons');
+container.innerHTML = '';
+places.forEach(place => {
+const btn = document.createElement('button');
+btn.className = 'place-btn';
+btn.innerText = currentLang === 'zh' ? place.name_zh : place.name_en;
+btn.onclick = () => {
+currentPlaceId = place.placeId;
+updateStatus(currentPlaceId);
+};
+container.appendChild(btn);
+});
+}
+
+function updateStatus(placeId) {
+const statusEl = document.getElementById('status');
+statusEl.innerText = messages[currentLang].loading;
+
+if (!placeId) return;
+
+fetch(`https://places.googleapis.com/v1/places/${placeId}?fields=currentOpeningHours&key=${apiKey}`)
+.then(response => response.json())
+.then(data => {
+// 模擬：如地點開放，顯示「正常」；否則「較多」
+const openNow = data?.currentOpeningHours?.openNow;
+statusEl.innerText = openNow ? messages[currentLang].normal : messages[currentLang].crowded;
+})
+.catch(() => {
+statusEl.innerText = messages[currentLang].error;
+});
+}
+
+renderPlaceButtons();
+</script>
+</body>
+</html>
