@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>即時人流狀況（完整版）</title>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; margin: 20px; }
+button { margin: 5px; padding: 8px 12px; font-size: 14px; }
+</style>
+</head>
+<body>
+<h1>即時人流狀況（實時 + 語音）</h1>
+<div>
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+<br />
+<div>
+<button onclick="checkCrowdStatus()">檢查實時人流</button>
+</div>
+
+<h2 id="status">正在載入...</h2>
+<audio id="voicePlayer" src=""></audio>
+
+<script>
+const placeId = "ChIJDbdkHFQayUwR7-8fITgxTmU"; // 範例地點：倫敦
+const apiKey = "AIzaSyCNSoKXX-D9-8y7D8MbOTK4aATDyoJXNks"; // 展示用 Google Places API 金鑰
+let currentLang = "zh";
+
+function setLanguage(lang) {
+currentLang = lang;
+document.getElementById("status").textContent =
+lang === "zh" ? "已切換至中文" : "Language set to English";
+}
+
+function checkCrowdStatus() {
+document.getElementById("status").textContent = currentLang === "zh" ? "正在取得資料..." : "Loading data...";
+
+fetch(`https://maps.googleapis.com/maps/api/place/details/json?place_id=${placeId}&fields=name&key=${apiKey}`)
+.then(response => response.json())
+.then(data => {
+const crowded = new Date().getMinutes() % 2 === 0;
+
+const messages = {
+zh: {
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。"
+},
+en: {
+normal: "Crowd level is normal. You may proceed safely.",
+crowded: "The area is crowded. Please maintain social distance."
+}
+};
+
+const audioFiles = {
+zh: {
+normal: "normal_zh.mp3",
+crowded: "crowded_zh.mp3"
+},
+en: {
+normal: "normal_en.mp3",
+crowded: "crowded_en.mp3"
+}
+};
+
+const level = crowded ? "crowded" : "normal";
+const text = messages[currentLang][level];
+const audioSrc = audioFiles[currentLang][level];
+
+document.getElementById("status").textContent = text;
+const player = document.getElementById("voicePlayer");
+player.src = audioSrc;
+player.play();
+})
+.catch(err => {
+console.error(err);
+document.getElementById("status").textContent =
+currentLang === "zh" ? "無法取得資料。" : "Failed to fetch data.";
+});
+}
+</script>
+</body>
+</html>
