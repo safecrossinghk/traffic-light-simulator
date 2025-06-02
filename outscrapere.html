@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時人流狀況</title>
+<style>
+body { font-family: sans-serif; text-align: center; padding: 2em; }
+select { font-size: 1em; margin-bottom: 1em; }
+.status { font-size: 1.5em; font-weight: bold; margin-top: 1em; }
+</style>
+</head>
+<body>
+<h1>即時人流狀況查詢</h1>
+
+<label for="place">選擇地點：</label>
+<select id="place">
+<option value="Lo Wu Station Hong Kong">羅湖站</option>
+<option value="Lok Ma Chau Station Hong Kong">落馬洲站</option>
+<option value="Heung Yuen Wai Boundary Control Point Public Toilet (II)">香園圍口岸公廁 (II)</option>
+</select>
+
+<div class="status" id="status">正在載入...</div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // <-- 請填入你的 Outscraper API 金鑰
+const statusEl = document.getElementById("status");
+const placeSelect = document.getElementById("place");
+
+function getStatusText(level) {
+if (level < 20) return "目前人流不繁忙，請安心前往。";
+else if (level < 50) return "目前人流正常，請安心前往。";
+else if (level < 80) return "現場人流較多，請注意保持距離。";
+else return "現場非常繁忙，請儘量避開高峰時間。";
+}
+
+async function fetchCrowdStatus(place) {
+statusEl.textContent = "載入中...";
+try {
+const response = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+query: place,
+limit: 1,
+language: "zh-HK",
+region: "hk"
+})
+});
+
+const data = await response.json();
+
+if (!data || !data[0] || !data[0].popular_times) {
+statusEl.textContent = "無法取得人流資料。";
+return;
+}
+
+const popularTimes = data[0].popular_times;
+const now = new Date();
+const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday...
+const hour = now.getHours();
+
+const todayData = popularTimes.find(d => d.day === dayOfWeek);
+if (!todayData || !todayData.data || todayData.data.length <= hour) {
+statusEl.textContent = "目前時段無資料。";
+return;
+}
+
+const value = todayData.data[hour];
+const message = getStatusText(value);
+statusEl.textContent = message;
+
+} catch (error) {
+console.error("錯誤:", error);
+statusEl.textContent = "獲取資料時發生錯誤。";
+}
+}
+
+placeSelect.addEventListener("change", () => {
+const place = placeSelect.value;
+fetchCrowdStatus(place);
+});
+
+fetchCrowdStatus(placeSelect.value);
+</script>
+</body>
+</html>
