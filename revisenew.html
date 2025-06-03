@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>三個地點人流查詢</title>
+<style>
+body {
+font-family: Arial, sans-serif;
+text-align: center;
+font-size: 1.5em;
+background-color: #f8f9fa;
+}
+.crowd-status {
+margin: 20px;
+padding: 20px;
+background-color: #e9ecef;
+border-radius: 10px;
+}
+button {
+font-size: 1em;
+margin: 10px;
+}
+</style>
+</head>
+<body>
+<h1>三個地點人流查詢</h1>
+<div class="crowd-status" id="loc1">地點一：人流正常</div>
+<div class="crowd-status" id="loc2">地點二：人流正常</div>
+<div class="crowd-status" id="loc3">地點三：人流正常</div>
+<button onclick="speak('zh')">粵語語音</button>
+<button onclick="speak('en')">English Audio</button>
+
+<script>
+const zhText = '目前三個地點人流正常，請安心前往。';
+const enText = 'The crowd levels at all three locations are normal. You may proceed.';
+
+function speak(lang) {
+const utterance = new SpeechSynthesisUtterance(lang === 'zh' ? zhText : enText);
+utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+speechSynthesis.speak(utterance);
+}
+</script>
+</body>
+</html>
