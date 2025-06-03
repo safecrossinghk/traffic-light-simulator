@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時人流狀況查詢</title>
+<style>
+body {
+font-family: "Arial", sans-serif;
+padding: 20px;
+text-align: center;
+font-size: 20px;
+background-color: #f9f9f9;
+}
+#map {
+height: 400px;
+width: 100%;
+margin-top: 20px;
+}
+input, button {
+font-size: 20px;
+padding: 14px 20px;
+margin: 10px 5px;
+width: 80%;
+max-width: 400px;
+box-sizing: border-box;
+}
+#results {
+margin-top: 20px;
+font-size: 20px;
+text-align: left;
+}
+.button-wide {
+width: 85%;
+max-width: 450px;
+font-weight: bold;
+background-color: #3f51b5;
+color: white;
+border: none;
+border-radius: 8px;
+}
+.input-row {
+display: flex;
+justify-content: center;
+flex-wrap: wrap;
+}
+</style>
+</head>
+<body>
+<h2>即時人流狀況查詢</h2>
+
+<div class="input-row">
+<input type="text" id="placeInput" placeholder="請輸入地點名稱">
+<button class="button-wide" onclick="checkPlace()">查詢人流狀況</button>
+</div>
+
+<div>
+<button class="button-wide" onclick="checkNearby()">📍 即時查找附近人流</button>
+</div>
+
+<div id="results"></div>
+<div id="map"></div>
+
+<script>
+const outscraperApiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+let map;
+let service;
+
+const statusText = {
+quiet: "目前人流稀少。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。"
+};
+
+function initMap() {
+map = new google.maps.Map(document.getElementById("map"), {
+center: { lat: 22.3964, lng: 114.1095 },
+zoom: 14,
+});
+service = new google.maps.places.PlacesService(map);
+}
+
+async function checkPlace() {
+const place = document.getElementById("placeInput").value.trim();
+if (!place) {
+alert("請輸入地點名稱");
+return;
+}
+
+try {
+const res = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": outscraperApiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: place, limit: 1 })
+});
+
+const data = await res.json();
+const popularity = data[0]?.popular_times || [];
+const lat = data[0]?.location?.lat;
+const lng = data[0]?.location?.lng;
+
+let status = "normal";
+const today = new Date().getDay();
+const hour = new Date().getHours();
+const todayData = popularity[today]?.data;
+const value = todayData ? todayData[hour] : null;
+
+if (value !== null) {
+if (value < 20) status = "quiet";
+else if (value < 60) status = "normal";
+else status = "crowded";
+}
+
+document.getElementById("results").innerHTML = `<div>【${place}】：${statusText[status]}</div>`;
+
+if (lat && lng) {
+map.setCenter({ lat, lng });
+new google.maps.Marker({
+map,
+position: { lat, lng },
+label: "查"
+});
+}
+} catch (err) {
+console.error("查詢失敗", err);
+alert("無法取得地點資料，請稍後再試");
+}
+}
+
+function checkNearby() {
+if (!navigator.geolocation) {
+alert("你的裝置不支援位置查詢");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(async (pos) => {
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+const location = new google.maps.LatLng(lat, lng);
+
+map.setCenter(location);
+
+service.nearbySearch({
+location,
+radius: 1000,
+type: ["point_of_interest"]
+}, async (results, status) => {
+if (status !== google.maps.places.PlacesServiceStatus.OK || !results) {
+alert("附近地點查詢失敗");
+return;
+}
+
+const places = results.slice(0, 3);
+document.getElementById("results").innerHTML = "";
+
+for (let i = 0; i < places.length; i++) {
+const name = places[i].name;
+
+try {
+const outRes = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": outscraperApiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: name, limit: 1 })
+});
+
+const outData = await outRes.json();
+const popularTimes = outData[0]?.popular_times || [];
+const placeLat = outData[0]?.location?.lat;
+const placeLng = outData[0]?.location?.lng;
+
+let status = "normal";
+const today = new Date().getDay();
+const hour = new Date().getHours();
+const todayData = popularTimes[today]?.data;
+const value = todayData ? todayData[hour] : null;
+
+if (value !== null) {
+if (value < 20) status = "quiet";
+else if (value < 60) status = "normal";
+else status = "crowded";
+}
+
+document.getElementById("results").innerHTML += `<div>【${name}】：${statusText[status]}</div>`;
+
+if (placeLat && placeLng) {
+new google.maps.Marker({
+map,
+position: { lat: placeLat, lng: placeLng },
+label: String(i + 1)
+});
+}
+} catch (e) {
+console.error("Outscraper 查詢錯誤", e);
+}
+}
+});
+}, () => {
+alert("無法取得你的位置");
+});
+}
+</script>
+
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&libraries=places&callback=initMap">
+</script>
+</body>
+</html>
