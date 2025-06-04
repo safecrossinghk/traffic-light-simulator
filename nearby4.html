@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時附近人流查詢 (Google Maps JS API)</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+.location { margin-bottom: 15px; }
+.status { font-weight: bold; }
+button { margin: 10px 5px; }
+</style>
+</head>
+<body>
+<h2>即時附近人流查詢</h2>
+<div>
+語言切換：
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+
+<div>
+<input id="addressInput" type="text" placeholder="輸入地址（選填）" style="width:300px;" />
+<button onclick="getNearbyPlaces()">取得附近人流</button>
+</div>
+
+<div id="locations"></div>
+
+<script>
+let language = 'zh';
+
+// 語音檔用文字合成示範（也可改用實際音檔）
+const texts = {
+zh: {
+quiet: "目前人流非常少，十分暢通。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。",
+no_data: "未能取得人流資料。"
+},
+en: {
+quiet: "Very low crowd. Area is clear.",
+normal: "Crowd level is normal. You may proceed safely.",
+crowded: "The area is crowded. Please maintain social distance.",
+no_data: "Unable to get crowd data."
+}
+};
+
+function setLanguage(lang) {
+language = lang;
+document.getElementById("locations").innerHTML = "";
+}
+
+function speak(text) {
+if (!window.speechSynthesis) return;
+window.speechSynthesis.cancel();
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = language === 'zh' ? 'zh-HK' : 'en-US';
+window.speechSynthesis.speak(utterance);
+}
+
+function getStatusText(level) {
+switch(level) {
+case 'quiet': return texts[language].quiet;
+case 'normal': return texts[language].normal;
+case 'crowded': return texts[language].crowded;
+default: return texts[language].no_data;
+}
+}
+
+function simulateCrowdLevel() {
+const r = Math.random() * 100;
+if (r < 30) return 'quiet';
+if (r < 70) return 'normal';
+return 'crowded';
+}
+
+function clearLocations() {
+document.getElementById("locations").innerHTML = "";
+}
+
+function getNearbyPlaces() {
+clearLocations();
+
+const addressInput = document.getElementById("addressInput").value.trim();
+if (addressInput) {
+geocodeAddress(addressInput);
+} else {
+// 用瀏覽器定位
+if (!navigator.geolocation) {
+alert(language === 'zh' ? "你的瀏覽器不支援地理定位。" : "Your browser does not support geolocation.");
+return;
+}
+navigator.geolocation.getCurrentPosition(position => {
+searchNearby(position.coords.latitude, position.coords.longitude);
+}, () => {
+alert(language === 'zh' ? "無法取得你的地理位置。" : "Unable to get your location.");
+});
+}
+}
+
+function geocodeAddress(address) {
+const geocoder = new google.maps.Geocoder();
+geocoder.geocode({ address: address }, (results, status) => {
+if (status === 'OK' && results[0]) {
+const loc = results[0].geometry.location;
+searchNearby(loc.lat(), loc.lng());
+} else {
+alert(language === 'zh' ? "找不到該地址。" : "Address not found.");
+}
+});
+}
+
+function searchNearby(lat, lng) {
+const location = new google.maps.LatLng(lat, lng);
+const map = new google.maps.Map(document.createElement('div')); // 不需要在頁面顯示地圖
+const service = new google.maps.places.PlacesService(map);
+
+const request = {
+location: location,
+radius: 1500,
+type: ['transit_station']
+};
+
+service.nearbySearch(request, (results, status) => {
+if (status !== google.maps.places.PlacesServiceStatus.OK || !results.length) {
+alert(language === 'zh' ? "無法取得附近地點。" : "Cannot get nearby places.");
+return;
+}
+
+const top3 = results.slice(0, 3);
+top3.forEach(place => {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<strong>${place.name}</strong>：<span class="status">載入中...</span>`;
+document.getElementById("locations").appendChild(div);
+
+// 模擬人流狀態
+setTimeout(() => {
+const level = simulateCrowdLevel();
+div.querySelector(".status").innerText = getStatusText(level);
+speak(getStatusText(level));
+}, 500 + Math.random() * 1000);
+});
+});
+}
+
+// 支援按 Enter 鍵觸發
+document.getElementById("addressInput").addEventListener("keydown", (e) => {
+if (e.key === "Enter") {
+getNearbyPlaces();
+}
+});
+
+// 載入 Google Maps JS SDK
+function loadScript() {
+const script = document.createElement("script");
+script.src = `https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&libraries=places&language=${language}`;
+script.async = true;
+script.defer = true;
+script.onload = () => {
+// 直接初始化或等待用戶動作
+};
+document.head.appendChild(script);
+}
+
+loadScript();
+</script>
+</body>
+</html>
