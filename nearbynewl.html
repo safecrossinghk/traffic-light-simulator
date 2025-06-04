@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢</title>
+<style>
+body {
+font-family: "Helvetica Neue", sans-serif;
+background: #f2f2f2;
+padding: 20px;
+text-align: center;
+font-size: 1.2em;
+}
+input, button {
+padding: 15px;
+font-size: 1.2em;
+width: 80%;
+max-width: 400px;
+margin: 10px 0;
+border-radius: 6px;
+border: none;
+}
+button {
+background-color: #003366;
+color: white;
+font-weight: bold;
+}
+button:hover {
+background-color: #0055aa;
+}
+#results {
+margin-top: 30px;
+font-size: 1.3em;
+color: #333;
+white-space: pre-wrap;
+}
+</style>
+</head>
+<body>
+<h2>即時人流狀況查詢</h2>
+
+<input type="text" id="placeInput" placeholder="請輸入地點名稱" onkeydown="if(event.key === 'Enter') checkPlace()">
+<br>
+<button onclick="checkPlace()">查詢人流狀況</button>
+<br>
+<button onclick="checkNearby()">即時查找附近人流</button>
+
+<div id="results"></div>
+
+<script>
+const outscraperApiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // ←請填入
+const googleApiKey = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY"; // ←請填入
+
+const statusText = {
+quiet: "目前人流稀少。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。"
+};
+
+async function checkPlace() {
+const place = document.getElementById("placeInput").value.trim();
+if (!place) return;
+
+document.getElementById("results").innerText = "正在查詢「" + place + "」的人流狀況...";
+
+try {
+const res = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": outscraperApiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: place, limit: 1 })
+});
+
+const data = await res.json();
+const info = data[0];
+const times = info?.popular_times;
+
+if (!info || !times) {
+document.getElementById("results").innerText = `找不到「${place}」的相關地點或人流資料。`;
+return;
+}
+
+const today = new Date().getDay();
+const hour = new Date().getHours();
+const popularity = times[today]?.data?.[hour] ?? null;
+
+let status = "normal";
+if (popularity !== null) {
+if (popularity < 20) status = "quiet";
+else if (popularity >= 60) status = "crowded";
+}
+
+document.getElementById("results").innerText = `【${place}】：${statusText[status]}`;
+} catch (e) {
+document.getElementById("results").innerText = "查詢失敗，請稍後再試。";
+}
+}
+
+async function checkNearby() {
+document.getElementById("results").innerText = "正在取得您附近的地點...";
+
+if (!navigator.geolocation) {
+document.getElementById("results").innerText = "無法使用您的定位功能。";
+return;
+}
+
+navigator.geolocation.getCurrentPosition(async (position) => {
+const lat = position.coords.latitude;
+const lng = position.coords.longitude;
+
+try {
+const res = await fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1000&type=point_of_interest&key=${googleApiKey}`);
+const data = await res.json();
+const results = data.results.slice(0, 3); // 取前三個地點
+
+if (!results.length) {
+document.getElementById("results").innerText = "附近找不到任何地點。";
+return;
+}
+
+let finalText = "";
+for (const place of results) {
+const name = place.name;
+
+const outRes = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": outscraperApiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: name, limit: 1 })
+});
+
+const outData = await outRes.json();
+const info = outData[0];
+const times = info?.popular_times;
+const today = new Date().getDay();
+const hour = new Date().getHours();
+const popularity = times?.[today]?.data?.[hour] ?? null;
+
+let status = "normal";
+if (popularity !== null) {
+if (popularity < 20) status = "quiet";
+else if (popularity >= 60) status = "crowded";
+}
+
+finalText += `【${name}】：${statusText[status]}\n`;
+}
+
+document.getElementById("results").innerText = finalText.trim();
+} catch (err) {
+document.getElementById("results").innerText = "無法取得附近地點資料。";
+}
+}, () => {
+document.getElementById("results").innerText = "無法取得您的位置。";
+});
+}
+</script>
+</body>
+</html>
