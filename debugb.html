@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>即時人流狀況查詢（Debug 修正版）</title>
+  <style>
+    body {
+      font-family: "Microsoft JhengHei", sans-serif;
+      text-align: center;
+      padding: 40px;
+    }
+    input, button {
+      padding: 10px;
+      font-size: 16px;
+      margin: 5px;
+    }
+    #result {
+      margin-top: 20px;
+      font-size: 18px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h2>即時人流狀況查詢（Debug修正版）</h2>
+  <input type="text" id="placeInput" placeholder="輸入地點名稱（如 Nam Cheong Station）" size="40">
+  <button onclick="searchPopularTimes()">查詢人流狀況</button>
+  <div id="result">請輸入地點後點擊查詢</div>
+
+  <script>
+    async function searchPopularTimes() {
+      const input = document.getElementById('placeInput').value.trim();
+      const resultDiv = document.getElementById('result');
+      if (!input) {
+        resultDiv.innerText = "請先輸入地點名稱";
+        return;
+      }
+
+      resultDiv.innerText = "查詢中...";
+      const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+      const encodedInput = encodeURIComponent(input);
+      const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodedInput}`;
+
+      try {
+        const response = await fetch(url, {
+          method: "GET",
+          headers: {
+            "X-API-KEY": apiKey
+          }
+        });
+
+        const data = await response.json();
+        if (data.error || !data.data || data.data.length === 0) {
+          resultDiv.innerText = "找不到相關地點或人流資料";
+        } else {
+          const popularTimes = data.data[0].popular_times || "無人流資料";
+          resultDiv.innerText = "人流狀況：" + JSON.stringify(popularTimes);
+        }
+      } catch (error) {
+        console.error(error);
+        resultDiv.innerText = "查詢失敗，請稍後再試";
+      }
+    }
+  </script>
+</body>
+</html>
