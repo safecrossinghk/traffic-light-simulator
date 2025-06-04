@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>即時人流狀況查詢（Debug版）</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      text-align: center;
+      font-size: 20px;
+    }
+    input, button {
+      font-size: 18px;
+      padding: 10px;
+      margin: 5px;
+    }
+    #results {
+      margin-top: 20px;
+      font-size: 18px;
+      white-space: pre-wrap;
+    }
+  </style>
+</head>
+<body>
+  <h2>即時人流狀況查詢（Debug版）</h2>
+
+  <div>
+    <input type="text" id="placeInput" placeholder="請輸入地點名稱" onkeypress="if(event.key==='Enter')checkPlace()">
+    <button onclick="checkPlace()">查詢人流狀況</button>
+  </div>
+
+  <div>
+    <button onclick="checkNearby()">即時查找附近人流</button>
+  </div>
+
+  <div id="results"></div>
+
+  <script>
+    const outscraperApiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+    const googleApiKey = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY";
+
+    const statusText = {
+      quiet: "目前人流稀少。",
+      normal: "目前人流正常，請安心前往。",
+      crowded: "現場人流較多，請注意保持距離。"
+    };
+
+    async function checkPlace() {
+      const place = document.getElementById("placeInput").value.trim();
+      if (!place) return alert("請輸入地點名稱");
+
+      document.getElementById("results").innerText = "查詢中…";
+
+      try {
+        const res = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+          method: "POST",
+          headers: {
+            "X-API-KEY": outscraperApiKey,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({ query: place, limit: 1 })
+        });
+
+        const data = await res.json();
+        console.log("Outscraper 回應：", data);
+
+        if (!Array.isArray(data) || data.length === 0 || !data[0].popular_times) {
+          document.getElementById("results").innerText = "找不到相關地點或人流資料";
+          return;
+        }
+
+        const popular = data[0].popular_times;
+        const today = new Date().getDay();
+        const hour = new Date().getHours();
+        const todayData = popular[today]?.data;
+        const value = todayData ? todayData[hour] : null;
+
+        let status = "normal";
+        if (value !== null) {
+          if (value < 20) status = "quiet";
+          else if (value < 60) status = "normal";
+          else status = "crowded";
+        }
+
+        document.getElementById("results").innerText = `【${place}】：${statusText[status]}`;
+      } catch (err) {
+        console.error("查詢發生錯誤：", err);
+        document.getElementById("results").innerText = "查詢失敗，請稍後再試";
+      }
+    }
+
+    async function checkNearby() {
+      if (!navigator.geolocation) {
+        alert("瀏覽器不支援定位功能");
+        return;
+      }
+
+      document.getElementById("results").innerText = "取得位置中…";
+
+      navigator.geolocation.getCurrentPosition(async (pos) => {
+        const lat = pos.coords.latitude;
+        const lng = pos.coords.longitude;
+        try {
+          const gRes = await fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1000&type=point_of_interest&key=${googleApiKey}`);
+          const gData = await gRes.json();
+          console.log("Google Places 回應：", gData);
+
+          if (!Array.isArray(gData.results) || gData.results.length === 0) {
+            document.getElementById("results").innerText = "找不到附近地點";
+            return;
+          }
+
+          const topPlaces = gData.results.slice(0, 3);
+          let allResults = "";
+
+          for (const place of topPlaces) {
+            const name = place.name;
+            const outRes = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+              method: "POST",
+              headers: {
+                "X-API-KEY": outscraperApiKey,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({ query: name, limit: 1 })
+            });
+
+            const outData = await outRes.json();
+            console.log(`查詢 ${name} 回應：`, outData);
+
+            const pop = outData[0]?.popular_times;
+            const today = new Date().getDay();
+            const hour = new Date().getHours();
+            const todayData = pop?.[today]?.data;
+            const value = todayData ? todayData[hour] : null;
+
+            let status = "normal";
+            if (value !== null) {
+              if (value < 20) status = "quiet";
+              else if (value < 60) status = "normal";
+              else status = "crowded";
+            } else {
+              status = "unknown";
+            }
+
+            const msg = status === "unknown" ? "找不到人流資料" : statusText[status];
+            allResults += `【${name}】：${msg}
+`;
+          }
+
+          document.getElementById("results").innerText = allResults;
+        } catch (err) {
+          console.error("定位查詢錯誤：", err);
+          document.getElementById("results").innerText = "查詢失敗，請稍後再試";
+        }
+      }, () => {
+        document.getElementById("results").innerText = "無法取得位置";
+      });
+    }
+  </script>
+</body>
+</html>
