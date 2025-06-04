@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時附近人流查詢 - 簡化版</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+.location { margin-bottom: 15px; }
+.status { font-weight: bold; }
+button { margin: 10px 5px; }
+</style>
+</head>
+<body>
+
+<h2>即時附近人流查詢</h2>
+
+<div>
+語言切換：
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+
+<div>
+<button onclick="getNearbyPlaces()">取得附近人流</button>
+</div>
+
+<div id="locations"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const googleApiKey = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY";
+let currentLanguage = 'zh';
+
+const texts = {
+zh: {
+quiet: "目前人流非常少，十分暢通。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。",
+loading: "載入中...",
+loadError: "載入失敗"
+},
+en: {
+quiet: "Very low crowd. Area is clear.",
+normal: "Crowd level is normal. You may proceed safely.",
+crowded: "The area is crowded. Please maintain social distance.",
+loading: "Loading...",
+loadError: "Error loading data"
+}
+};
+
+function setLanguage(lang) {
+currentLanguage = lang;
+document.getElementById("locations").innerHTML = "";
+}
+
+async function getNearbyPlaces() {
+if (!navigator.geolocation) {
+alert("你的瀏覽器不支援地理定位。");
+return;
+}
+navigator.geolocation.getCurrentPosition(async (pos) => {
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+
+// Google Places Nearby Search API - 透過代理解決 CORS
+const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1500&type=transit_station&key=${googleApiKey}`;
+const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+
+try {
+const res = await fetch(proxyUrl);
+const jsonText = await res.json();
+const data = JSON.parse(jsonText.contents);
+const places = data.results.slice(0, 3).map(p => p.name);
+
+document.getElementById("locations").innerHTML = "";
+
+for (const place of places) {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<strong>${place}</strong>: <span class="status">${texts[currentLanguage].loading}</span>`;
+document.getElementById("locations").appendChild(div);
+
+// 取人流資料
+try {
+const resp = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: place, limit: 1 })
+});
+const json = await resp.json();
+
+const popularity = json[0]?.popular_times || [];
+const currentHour = new Date().getHours();
+const today = new Date().getDay();
+const todayData = popularity[today];
+let status = 'normal';
+
+if (todayData && todayData.data) {
+const val = todayData.data[currentHour];
+if (val < 20) status = 'quiet';
+else if (val < 60) status = 'normal';
+else status = 'crowded';
+}
+
+div.querySelector(".status").innerText = texts[currentLanguage][status];
+
+} catch (e) {
+console.error(e);
+div.querySelector(".status").innerText = texts[currentLanguage].loadError;
+}
+}
+
+} catch (e) {
+alert("無法取得附近地點。");
+console.error(e);
+}
+}, () => alert("無法取得你的地理位置。"));
+}
+</script>
+
+</body>
+</html>
