@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時車流查詢（香港）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: Arial, sans-serif; text-align: center; margin: 0; }
+#mapContainer { width: 100%; height: 500px; }
+button { padding: 10px 20px; margin: 10px; font-size: 16px; }
+#status { margin-top: 10px; font-size: 18px; }
+</style>
+<script src="https://webapi.amap.com/maps?v=2.0&key=c739c1ac829fc2acf00599662cca95f9"></script>
+</head>
+<body>
+<h2>即時車流查詢（香港）</h2>
+<div id="mapContainer"></div>
+<button onclick="getLocation()">📍 查詢目前車流</button>
+<button onclick="toggleLanguage()">🌐 切換語言</button>
+<p id="status">請點擊按鈕查詢附近車流情況。</p>
+<script>
+let currentLang = 'zh-HK';
+let map, marker;
+
+function speak(text, lang = 'zh-HK') {
+if (!window.speechSynthesis) return;
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = lang;
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(msg);
+}
+
+function initMap(lng, lat) {
+map = new AMap.Map('mapContainer', {
+resizeEnable: true,
+zoom: 15,
+center: [lng, lat]
+});
+
+AMap.plugin('AMap.ToolBar', function () {
+map.addControl(new AMap.ToolBar());
+});
+
+map.setTrafficOn(true);
+
+if (marker) map.remove(marker);
+marker = new AMap.Marker({
+position: [lng, lat],
+map: map
+});
+
+const msg = currentLang === 'zh-HK' ? "已顯示您附近的即時車流。" : "Traffic near your location is displayed.";
+document.getElementById("status").textContent = msg;
+speak(msg, currentLang);
+}
+
+function getLocation() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(position => {
+const lng = position.coords.longitude;
+const lat = position.coords.latitude;
+initMap(lng, lat);
+}, () => {
+const errorMsg = currentLang === 'zh-HK' ? "無法取得您的位置。" : "Failed to get your location.";
+document.getElementById("status").textContent = errorMsg;
+speak(errorMsg, currentLang);
+});
+}
+}
+
+function toggleLanguage() {
+currentLang = currentLang === 'zh-HK' ? 'en-US' : 'zh-HK';
+const msg = currentLang === 'zh-HK' ? "已切換為粵語提示。" : "Switched to English voice.";
+document.getElementById("status").textContent = msg;
+speak(msg, currentLang);
+}
+</script>
+</body>
+</html>
