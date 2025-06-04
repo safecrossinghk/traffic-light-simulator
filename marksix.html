@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <title>六合彩預測器</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 40px; }
+        button { font-size: 20px; margin: 10px; padding: 10px 20px; }
+        .numbers { font-size: 32px; margin-top: 20px; font-weight: bold; }
+        .lang-toggle { margin-top: 20px; }
+    </style>
+</head>
+<body>
+    <h1 id="title">六合彩預測器</h1>
+    <button onclick="generateNumbers()" id="generateBtn">生成預測號碼</button>
+    <div class="numbers" id="numbersDisplay">🎱 🎱 🎱 🎱 🎱 🎱 🎱</div>
+
+    <div class="lang-toggle">
+        <button onclick="setLanguage('zh')">粵語</button>
+        <button onclick="setLanguage('en')">English</button>
+    </div>
+
+    <script>
+        let language = 'zh';
+
+        function generateNumbers() {
+            let nums = new Set();
+            while (nums.size < 6) {
+                nums.add(Math.floor(Math.random() * 49) + 1);
+            }
+            let final = Array.from(nums).sort((a, b) => a - b);
+            let special = Math.floor(Math.random() * 49) + 1;
+            document.getElementById("numbersDisplay").innerText = final.join(" ") + " + " + special;
+
+            let text = language === 'zh' ? "預測號碼係 " + final.join("、") + "，特別號碼 " + special
+                                         : "Predicted numbers are " + final.join(", ") + ", special number " + special;
+            speak(text);
+        }
+
+        function speak(text) {
+            let utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = language === 'zh' ? 'zh-HK' : 'en-US';
+            speechSynthesis.speak(utterance);
+        }
+
+        function setLanguage(lang) {
+            language = lang;
+            document.getElementById("title").innerText = lang === 'zh' ? "六合彩預測器" : "Lotto Predictor";
+            document.getElementById("generateBtn").innerText = lang === 'zh' ? "生成預測號碼" : "Generate Numbers";
+        }
+    </script>
+</body>
+</html>
