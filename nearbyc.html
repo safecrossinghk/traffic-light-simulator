@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>即時人流狀況查詢</title>
+<style>
+body { font-family: sans-serif; text-align: center; margin-top: 50px; }
+button { padding: 10px 20px; margin: 10px; font-size: 18px; }
+input { padding: 10px; font-size: 18px; width: 300px; }
+#result { margin-top: 20px; font-size: 20px; }
+</style>
+</head>
+<body>
+<h1>即時人流狀況查詢</h1>
+<input type="text" id="placeInput" placeholder="請輸入地點名稱" />
+<br>
+<button onclick="searchPopularTimes()">查詢人流狀況</button>
+<button onclick="searchNearby()">即時查找附近人流</button>
+<div id="result"></div>
+
+<script>
+const GOOGLE_API_KEY = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY"; // ← 請替換
+const OUTSCRAPER_API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // ← 請替換
+
+async function searchPopularTimes() {
+const place = document.getElementById('placeInput').value.trim();
+if (!place) return alert("請輸入地點名稱");
+
+try {
+const outscraperRes = await fetch("https://api.app.outscraper.com/places/v2/details", {
+method: "POST",
+headers: {
+"X-API-KEY": OUTSCRAPER_API_KEY,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: place })
+});
+const data = await outscraperRes.json();
+const times = data?.data?.[0]?.popular_times;
+if (times) {
+document.getElementById('result').innerText = "目前人流：" + JSON.stringify(times);
+} else {
+document.getElementById('result').innerText = "查無人流資料。";
+}
+} catch (e) {
+document.getElementById('result').innerText = "查詢失敗，請稍後重試。";
+}
+}
+
+async function searchNearby() {
+if (!navigator.geolocation) {
+return alert("不支援定位功能");
+}
+navigator.geolocation.getCurrentPosition(async (position) => {
+const { latitude, longitude } = position.coords;
+try {
+const nearbyRes = await fetch(`https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=100&type=subway_station&key=${GOOGLE_API_KEY}`);
+const nearbyData = await nearbyRes.json();
+const name = nearbyData?.results?.[0]?.name;
+if (!name) throw new Error("找不到附近地點");
+
+document.getElementById('placeInput').value = name;
+searchPopularTimes();
+} catch (e) {
+document.getElementById('result').innerText = "查詢附近地點失敗。";
+}
+}, () => {
+alert("無法取得位置資訊");
+});
+}
+</script>
+</body>
+</html>
