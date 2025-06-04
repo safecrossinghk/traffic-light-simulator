@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>即時附近人流查詢</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+        input, button { margin: 10px; padding: 10px; font-size: 16px; }
+    </style>
+</head>
+<body>
+    <h1>即時附近人流查詢</h1>
+    <label for="lang">語言切換：</label>
+    <button onclick="setLanguage('zh')">中文</button>
+    <button onclick="setLanguage('en')">English</button>
+    <br><br>
+    <input type="text" id="locationInput" placeholder="輸入地點名稱" value="Nam Cheong Station">
+    <button onclick="checkNearby()">查詢人流狀況</button>
+    <p id="resultText"></p>
+
+    <script>
+        let currentLang = 'zh';
+        function setLanguage(lang) {
+            currentLang = lang;
+        }
+
+        function speakMessage(msgZh, msgEn) {
+            const msg = new SpeechSynthesisUtterance(currentLang === 'zh' ? msgZh : msgEn);
+            msg.lang = currentLang === 'zh' ? 'zh-HK' : 'en-US';
+            window.speechSynthesis.speak(msg);
+        }
+
+        async function checkNearby() {
+            const location = document.getElementById("locationInput").value;
+            const resultText = document.getElementById("resultText");
+            resultText.textContent = "查詢中...";
+
+            try {
+                const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";  // Replace manually
+                const url = `https://api.outscraper.com/maps/search-v2?q=${encodeURIComponent(location)}`;
+                const response = await fetch(url, {
+                    method: "GET",
+                    headers: { "X-API-KEY": apiKey }
+                });
+
+                if (!response.ok) throw new Error("查詢失敗");
+
+                const data = await response.json();
+                if (data && data[0] && data[0].popular_times) {
+                    resultText.textContent = `${location}：目前人流正常，請安心前往。`;
+                    speakMessage("目前人流正常，請安心前往。", "Crowd level is normal. You may proceed.");
+                } else {
+                    resultText.textContent = `${location}：找不到人流資料。`;
+                    speakMessage("找不到人流資料。", "No crowd data found.");
+                }
+            } catch (err) {
+                resultText.textContent = "查詢失敗，請稍後再試。";
+                speakMessage("查詢失敗，請稍後再試。", "Query failed. Please try again later.");
+            }
+        }
+    </script>
+</body>
+</html>
