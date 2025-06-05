@@ -1,0 +1,97 @@
+<script>
+let currentLang = "zh";
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+const langText = {
+zh: {
+title: "即時附近人流查詢",
+update: "取得附近人流",
+fallback: "目前人流正常，請安心前往。",
+error: "未能取得人流資料。",
+},
+en: {
+title: "Nearby Real-Time Crowd Check",
+update: "Get Nearby Crowd",
+fallback: "Crowd level normal. Safe to go.",
+error: "Unable to retrieve crowd data.",
+}
+};
+
+function setLanguage(lang) {
+currentLang = lang;
+document.getElementById("title").textContent = langText[lang].title;
+document.getElementById("updateText").textContent = langText[lang].update;
+updateCrowdData();
+}
+
+async function updateCrowdData() {
+const container = document.getElementById("crowdData");
+container.innerHTML = "";
+
+if (!navigator.geolocation) {
+container.textContent = "瀏覽器不支援定位功能。";
+return;
+}
+
+navigator.geolocation.getCurrentPosition(async (pos) => {
+const { latitude, longitude } = pos.coords;
+
+const url = `https://api.app.outscraper.com/maps/search-v2?query=*&lat=${latitude}&lng=${longitude}&limit=5&async=false&region=hk`;
+
+try {
+const res = await fetch(url, {
+headers: { "X-API-KEY": apiKey }
+});
+
+if (!res.ok) throw new Error(`HTTP Error: ${res.status}`);
+const data = await res.json();
+
+const results = data.data || [];
+if (results.length === 0) throw new Error("No nearby places found");
+
+results.forEach((place) => {
+const name = place.name || "未知地點";
+const current = place.current_popularity;
+
+const div = document.createElement("div");
+div.className = "location";
+
+let spoken = "";
+
+if (typeof current === "number") {
+const msg = `${name}：目前人流為 ${current}%。`;
+div.textContent = msg;
+spoken = msg;
+} else {
+const msg = `${name}：${langText[currentLang].fallback}`;
+div.textContent = msg;
+spoken = msg;
+}
+
+container.appendChild(div);
+speak(spoken);
+});
+} catch (e) {
+console.error("錯誤:", e);
+const errorText = langText[currentLang].error;
+container.innerHTML = `<div class="location">${errorText}</div>`;
+}
+}, () => {
+container.innerHTML = `<div class="location">無法取得你的位置。</div>`;
+});
+}
+
+function speak(text) {
+if (!text) return;
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = currentLang === "zh" ? "zh-HK" : "en-US";
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(utter);
+}
+
+window.onload = () => {
+setLanguage("zh");
+updateCrowdData();
+setInterval(updateCrowdData, 5 * 60 * 1000);
+};
+</script>
