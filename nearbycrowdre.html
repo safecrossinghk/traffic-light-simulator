@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時人流狀況查詢</title>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
+button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+.location { margin: 8px 0; }
+</style>
+</head>
+<body>
+<h2 id="title">即時人流狀況查詢</h2>
+<div>
+<label>語言切換：</label>
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+<button onclick="updateCrowdData()">
+<span id="updateText">更新人流狀況</span>
+</button>
+<div id="crowdData"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+const locations = [
+"Lo Wu Station, Hong Kong",
+"Lok Ma Chau Station, Hong Kong",
+"Hong Kong Cultural Centre, Tsim Sha Tsui",
+"Yuen Long Plaza, Hong Kong",
+"MOSTown, Ma On Shan",
+"Hollywood Plaza Mongkok",
+"D2 Place Lai Chi Kok",
+"D2 Place Two Lai Chi Kok",
+"Citygate Outlets Tung Chung"
+];
+
+const langText = {
+zh: {
+title: "即時人流狀況查詢",
+update: "更新人流狀況",
+noData: "：未能取得人流資料",
+fallback: "：僅提供歷史人流參考",
+current: "：目前人流狀況為 ",
+},
+en: {
+title: "Real-Time Crowd Status",
+update: "Update Crowd Status",
+noData: ": Unable to fetch data",
+fallback: ": Historical crowd level only",
+current: ": Current crowd level is ",
+}
+};
+
+let currentLang = "zh";
+
+function setLanguage(lang) {
+currentLang = lang;
+document.getElementById("title").textContent = langText[lang].title;
+document.getElementById("updateText").textContent = langText[lang].update;
+updateCrowdData();
+}
+
+async function updateCrowdData() {
+const container = document.getElementById("crowdData");
+container.innerHTML = "";
+
+for (const place of locations) {
+const encodedPlace = encodeURIComponent(place);
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodedPlace}&lang=en&region=hk&async=false`;
+
+try {
+const res = await fetch(url, {
+headers: { "X-API-KEY": apiKey },
+});
+
+if (!res.ok) throw new Error("HTTP " + res.status);
+
+const data = await res.json();
+const result = data.data?.[0];
+
+const popularity = result?.popular_times?.find(
+p => p.name === new Date().toLocaleString('en-US', { weekday: 'long' })
+)?.data?.[new Date().getHours()];
+
+const current = result?.current_popularity;
+
+const line = document.createElement("div");
+line.className = "location";
+
+if (current !== undefined) {
+line.textContent = place + langText[currentLang].current + current + "%";
+speak(`${place}${langText[currentLang].current}${current}%`);
+} else if (popularity !== undefined) {
+line.textContent = place + langText[currentLang].fallback;
+speak(`${place}${langText[currentLang].fallback}`);
+} else {
+line.textContent = place + langText[currentLang].noData;
+}
+
+container.appendChild(line);
+} catch (err) {
+const line = document.createElement("div");
+line.className = "location";
+line.textContent = place + langText[currentLang].noData;
+container.appendChild(line);
+}
+}
+}
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = currentLang === "zh" ? "zh-HK" : "en-US";
+window.speechSynthesis.speak(utterance);
+}
+
+setInterval(updateCrowdData, 5 * 60 * 1000);
+window.onload = () => updateCrowdData();
+</script>
+</body>
+</html>
