@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>香港天氣預報</title>
+<script src="script.js" defer></script>
+<style>
+body {
+font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+padding: 2em;
+background-color: #f5f5f5;
+}
+h1 {
+color: #333;
+}
+.weather-box {
+background-color: #fff;
+padding: 1em;
+border-radius: 8px;
+box-shadow: 0 0 5px rgba(0,0,0,0.1);
+margin-bottom: 1em;
+}
+button {
+margin-right: 1em;
+padding: 0.5em 1em;
+font-size: 1em;
+}
+</style>
+</head>
+<body>
+<h1>香港天氣預報</h1>
+
+<div class="weather-box">
+<strong>天氣情況：</strong>
+<p id="weather-info">載入天氣資料中...</p>
+</div>
+
+<div class="weather-box">
+<strong>天氣警告：</strong>
+<p id="warning-info">載入天氣警告中...</p>
+</div>
+
+<div class="weather-box">
+<button onclick="playAudio('cantonese')">▶ 粵語語音</button>
+<button onclick="playAudio('english')">▶ English Audio</button>
+</div>
+</body>
+</html>
