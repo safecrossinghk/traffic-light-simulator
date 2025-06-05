@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    
+        <script>
+            L_NO_TOUCH = false;
+            L_DISABLE_3D = false;
+        </script>
+    
+    <style>html, body {width: 100%;height: 100%;margin: 0;padding: 0;}</style>
+    <style>#map {position:absolute;top:0;bottom:0;right:0;left:0;}</style>
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/js/bootstrap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.6.0/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap-theme.min.css"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.6.3/css/font-awesome.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_69ba034555c425f4c4b4c4f0fde3313e {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+            </style>
+        
+</head>
+<body>
+    
+    
+            <div class="folium-map" id="map_69ba034555c425f4c4b4c4f0fde3313e" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_69ba034555c425f4c4b4c4f0fde3313e = L.map(
+                "map_69ba034555c425f4c4b4c4f0fde3313e",
+                {
+                    center: [22.3964, 114.1095],
+                    crs: L.CRS.EPSG3857,
+                    zoom: 11,
+                    zoomControl: true,
+                    preferCanvas: false,
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_dc22e07cf59172166309cbad713be80a = L.tileLayer(
+                "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {"attribution": "Data by \u0026copy; \u003ca href=\"http://openstreetmap.org\"\u003eOpenStreetMap\u003c/a\u003e, under \u003ca href=\"http://www.openstreetmap.org/copyright\"\u003eODbL\u003c/a\u003e.", "detectRetina": false, "maxNativeZoom": 18, "maxZoom": 18, "minZoom": 0, "noWrap": false, "opacity": 1, "subdomains": "abc", "tms": false}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+            var circle_marker_b862faa6bb31b9d479b1ee542c8ede48 = L.circleMarker(
+                [22.5123, 114.1094],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 10, "stroke": true, "weight": 3}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+        var popup_4abcf8d6c1ee7358d18849b47525bd2b = L.popup({"maxWidth": "100%"});
+
+        
+            var html_e07d3d6faceca028c9f15fb44b77570e = $(`<div id="html_e07d3d6faceca028c9f15fb44b77570e" style="width: 100.0%; height: 100.0%;">Lo Wu Station: 70</div>`)[0];
+            popup_4abcf8d6c1ee7358d18849b47525bd2b.setContent(html_e07d3d6faceca028c9f15fb44b77570e);
+        
+
+        circle_marker_b862faa6bb31b9d479b1ee542c8ede48.bindPopup(popup_4abcf8d6c1ee7358d18849b47525bd2b)
+        ;
+
+        
+    
+    
+            var circle_marker_aa96faf9d3f20c63b18dccdabc34134b = L.circleMarker(
+                [22.5041, 114.0707],
+                {"bubblingMouseEvents": true, "color": "orange", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "orange", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 10, "stroke": true, "weight": 3}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+        var popup_4373442a5c26f0918251633141f99da5 = L.popup({"maxWidth": "100%"});
+
+        
+            var html_4cd5c3d98c279f53def999fc0ecccad2 = $(`<div id="html_4cd5c3d98c279f53def999fc0ecccad2" style="width: 100.0%; height: 100.0%;">Lok Ma Chau Station: 50</div>`)[0];
+            popup_4373442a5c26f0918251633141f99da5.setContent(html_4cd5c3d98c279f53def999fc0ecccad2);
+        
+
+        circle_marker_aa96faf9d3f20c63b18dccdabc34134b.bindPopup(popup_4373442a5c26f0918251633141f99da5)
+        ;
+
+        
+    
+    
+            var circle_marker_cf5fc46ac9f80fd90f2b9b8672bb6508 = L.circleMarker(
+                [22.2947, 114.172],
+                {"bubblingMouseEvents": true, "color": "green", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "green", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 10, "stroke": true, "weight": 3}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+        var popup_6576e2aaea3b9017023b5cbae18e14df = L.popup({"maxWidth": "100%"});
+
+        
+            var html_2179457a1a8064fc866e57524fa961d5 = $(`<div id="html_2179457a1a8064fc866e57524fa961d5" style="width: 100.0%; height: 100.0%;">Hong Kong Cultural Centre: 20</div>`)[0];
+            popup_6576e2aaea3b9017023b5cbae18e14df.setContent(html_2179457a1a8064fc866e57524fa961d5);
+        
+
+        circle_marker_cf5fc46ac9f80fd90f2b9b8672bb6508.bindPopup(popup_6576e2aaea3b9017023b5cbae18e14df)
+        ;
+
+        
+    
+    
+            var circle_marker_24358b176cf40a0ade875470bdfde5a3 = L.circleMarker(
+                [22.4455, 114.0322],
+                {"bubblingMouseEvents": true, "color": "red", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "red", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 10, "stroke": true, "weight": 3}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+        var popup_6f2396ef7bb86fde3d7d35a5679509cc = L.popup({"maxWidth": "100%"});
+
+        
+            var html_9d614faa5791bee9bd167867fc830584 = $(`<div id="html_9d614faa5791bee9bd167867fc830584" style="width: 100.0%; height: 100.0%;">Yuen Long Plaza: 65</div>`)[0];
+            popup_6f2396ef7bb86fde3d7d35a5679509cc.setContent(html_9d614faa5791bee9bd167867fc830584);
+        
+
+        circle_marker_24358b176cf40a0ade875470bdfde5a3.bindPopup(popup_6f2396ef7bb86fde3d7d35a5679509cc)
+        ;
+
+        
+    
+    
+            var circle_marker_25de51aabf9419c0d4aa32c6990c6d54 = L.circleMarker(
+                [22.3818, 114.1882],
+                {"bubblingMouseEvents": true, "color": "gray", "dashArray": null, "dashOffset": null, "fill": true, "fillColor": "gray", "fillOpacity": 0.7, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "opacity": 1.0, "radius": 10, "stroke": true, "weight": 3}
+            ).addTo(map_69ba034555c425f4c4b4c4f0fde3313e);
+        
+    
+        var popup_2f5a5b4f296d1e472a0e6d2da8ea3692 = L.popup({"maxWidth": "100%"});
+
+        
+            var html_70abe8128ea21900d5db0b4254cd7419 = $(`<div id="html_70abe8128ea21900d5db0b4254cd7419" style="width: 100.0%; height: 100.0%;">MOSTown: 無資料</div>`)[0];
+            popup_2f5a5b4f296d1e472a0e6d2da8ea3692.setContent(html_70abe8128ea21900d5db0b4254cd7419);
+        
+
+        circle_marker_25de51aabf9419c0d4aa32c6990c6d54.bindPopup(popup_2f5a5b4f296d1e472a0e6d2da8ea3692)
+        ;
+
+        
+    
+</script>
+</html>
