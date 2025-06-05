@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時人流狀況查詢</title>
+<style>
+body {
+font-family: "Arial", sans-serif;
+text-align: center;
+padding: 2em;
+}
+button {
+margin: 0.5em;
+padding: 0.5em 1em;
+font-size: 16px;
+}
+.location {
+margin-top: 1em;
+font-size: 18px;
+}
+</style>
+</head>
+<body>
+<h2 id="title">即時人流狀況查詢</h2>
+<div>
+<label>語言切換：</label>
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+</div>
+<button onclick="updateData()">
+<span id="updateBtn">更新人流狀況</span>
+</button>
+<div id="result"></div>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // ⛔ 請替換！
+let lang = 'zh';
+
+const places = [
+{ name_zh: "羅湖站", name_en: "Lo Wu Station", query: "羅湖站" },
+{ name_zh: "落馬洲站", name_en: "Lok Ma Chau Station", query: "落馬洲站" },
+{ name_zh: "香園圍口岸公園（前）", name_en: "Heung Yuen Wai Park", query: "香園圍口岸公園" },
+{ name_zh: "宇晴匯", name_en: "The Hermitage", query: "宇晴匯" },
+{ name_zh: "昇悅商場", name_en: "The Sparkle", query: "昇悅商場" },
+{ name_zh: "泓景匯", name_en: "The Pacifica", query: "泓景匯" },
+{ name_zh: "D2 Place", name_en: "D2 Place", query: "D2 Place One" },
+{ name_zh: "D2 Place Two", name_en: "D2 Place Two", query: "D2 Place Two" },
+{ name_zh: "長沙灣廣場", name_en: "Cheung Sha Wan Plaza", query: "長沙灣廣場" }
+];
+
+function setLang(l) {
+lang = l;
+document.getElementById('title').innerText = lang === 'zh' ? '即時人流狀況查詢' : 'Real-time Crowd Info';
+document.getElementById('updateBtn').innerText = lang === 'zh' ? '更新人流狀況' : 'Update Crowd Info';
+updateData();
+}
+
+async function updateData() {
+const resultDiv = document.getElementById('result');
+resultDiv.innerHTML = '';
+for (let place of places) {
+const name = lang === 'zh' ? place.name_zh : place.name_en;
+const display = document.createElement('div');
+display.className = "location";
+display.innerText = `${name}：載入中...`;
+resultDiv.appendChild(display);
+
+try {
+const res = await fetch(`https://api.app.outscraper.com/maps/search-v2?q=${encodeURIComponent(place.query)}&limit=1&async=false`, {
+headers: {
+"X-API-KEY": apiKey
+}
+});
+const json = await res.json();
+const data = json.data?.[0];
+const popularity = data?.popular_times || [];
+const now = data?.current_popularity;
+
+let msg = '';
+if (now !== undefined) {
+msg = lang === 'zh' ? `目前人流為 ${now}（滿分100）` : `Current crowd: ${now}/100`;
+speak(`${name}：${lang === 'zh' ? '目前人流' : 'Crowd level'} ${now}`);
+} else if (popularity.length > 0) {
+msg = lang === 'zh' ? '僅提供歷史人流參考' : 'Historical crowd data only';
+speak(`${name}：${lang === 'zh' ? '僅有歷史數據' : 'Only historical data'}`);
+} else {
+msg = lang === 'zh' ? '未能取得人流資料' : 'No crowd data available';
+}
+display.innerText = `${name}：${msg}`;
+} catch (e) {
+display.innerText = `${name}：${lang === 'zh' ? '資料載入失敗' : 'Failed to load data'}`;
+}
+}
+}
+
+function speak(text) {
+const synth = window.speechSynthesis;
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+synth.speak(utter);
+}
+
+// 預設載入
+updateData();
+</script>
+</body>
+</html>
