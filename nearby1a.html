@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時人流狀況查詢</title>
+<style>
+body {
+font-family: "Helvetica Neue", Arial, sans-serif;
+margin: 0;
+padding: 20px;
+text-align: center;
+background: #f0f2f5;
+}
+h2 {
+margin-bottom: 10px;
+}
+button {
+margin: 10px;
+padding: 10px 20px;
+font-size: 16px;
+border: none;
+border-radius: 4px;
+background: #007bff;
+color: white;
+cursor: pointer;
+}
+button:hover {
+background: #0056b3;
+}
+.location {
+margin: 8px 0;
+font-size: 16px;
+}
+#mapContainer {
+width: 100%;
+max-width: 800px;
+height: 480px;
+margin: 30px auto;
+border: 2px solid #ccc;
+border-radius: 8px;
+overflow: hidden;
+}
+iframe {
+width: 100%;
+height: 100%;
+border: none;
+}
+</style>
+</head>
+
+<body>
+<h2 id="title">即時人流狀況查詢</h2>
+
+<div>
+<label>語言切換：</label>
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+
+<button onclick="updateCrowdData()">
+<span id="updateText">更新人流狀況</span>
+</button>
+
+<div id="mapContainer">
+<!-- 嵌入 crowdmap.html 地圖 -->
+<iframe src="crowdmap.html" title="即時人流地圖"></iframe>
+</div>
+
+<div id="crowdData"></div>
+
+<script>
+const locations = [
+"Lo Wu Station",
+"Lok Ma Chau Station",
+"Hong Kong Cultural Centre",
+"Yuen Long Plaza",
+"MOSTown",
+"Hollywood Plaza Mongkok",
+"D2 Place",
+"D2 Place Two",
+"Citygate Outlets"
+];
+
+const langText = {
+zh: {
+title: "即時人流狀況查詢",
+update: "更新人流狀況",
+noData: "：未能取得人流資料",
+fallback: "：僅提供歷史人流參考",
+current: "：目前人流狀況為 ",
+},
+en: {
+title: "Real-Time Crowd Status",
+update: "Update Crowd Status",
+noData: ": Unable to fetch data",
+fallback: ": Historical crowd level only",
+current: ": Current crowd level is ",
+},
+};
+
+let currentLang = "zh";
+
+function setLanguage(lang) {
+currentLang = lang;
+document.getElementById("title").textContent = langText[lang].title;
+document.getElementById("updateText").textContent = langText[lang].update;
+updateCrowdData();
+}
+
+async function updateCrowdData() {
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const container = document.getElementById("crowdData");
+container.innerHTML = "";
+
+for (const place of locations) {
+const encodedPlace = encodeURIComponent(place);
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodedPlace}&lang=en&region=hk&async=false`;
+
+try {
+const res = await fetch(url, {
+headers: { "X-API-KEY": apiKey },
+});
+
+if (!res.ok) throw new Error("HTTP " + res.status);
+const data = await res.json();
+const result = data.data?.[0];
+
+const popularity = result?.popular_times?.find(p =>
+p.name === new Date().toLocaleString('en-US', { weekday: 'long' })
+)?.data?.[new Date().getHours()];
+
+const current = result?.current_popularity;
+
+const line = document.createElement("div");
+line.className = "location";
+
+if (current !== undefined) {
+line.textContent = place + langText[currentLang].current + current + "%";
+speak(`${place}${langText[currentLang].current}${current}%`);
+} else if (popularity !== undefined) {
+line.textContent = place + langText[currentLang].fallback;
+speak(`${place}${langText[currentLang].fallback}`);
+} else {
+line.textContent = place + langText[currentLang].noData;
+}
+
+container.appendChild(line);
+
+} catch (err) {
+const line = document.createElement("div");
+line.className = "location";
+line.textContent = place + langText[currentLang].noData;
+container.appendChild(line);
+}
+}
+}
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = currentLang === "zh" ? "zh-HK" : "en-US";
+window.speechSynthesis.speak(utterance);
+}
+
+// 自動刷新每 5 分鐘
+setInterval(updateCrowdData, 5 * 60 * 1000);
+
+// 預設載入
+window.onload = () => {
+updateCrowdData();
+};
+</script>
+</body>
+</html>
