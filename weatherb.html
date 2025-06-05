@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>香港天氣預報</title>
+  <style>
+    body { font-family: "Helvetica Neue", sans-serif; padding: 2em; background: #f8f9fa; }
+    h1 { color: #222; }
+    .section { margin-top: 1.5em; padding: 1em; background: #fff; border-radius: 8px; box-shadow: 0 0 5px rgba(0,0,0,0.05); }
+    .buttons { margin-top: 1em; }
+    button { margin-right: 1em; padding: 0.5em 1em; }
+  </style>
+</head>
+<body>
+  <h1>香港天氣預報</h1>
+
+  <div class="section">
+    <strong>天氣情況：</strong>
+    <p id="weather-info">載入天氣資料中...</p>
+  </div>
+
+  <div class="section">
+    <strong>天氣警告：</strong>
+    <p id="warning-info">載入天氣警告中...</p>
+  </div>
+
+  <div class="buttons">
+    <button onclick="playAudio('cantonese')">▶ 粵語語音</button>
+    <button onclick="playAudio('english')">▶ English Audio</button>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
