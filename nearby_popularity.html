@@ -1,0 +1,53 @@
+
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>即時附近人流查詢</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 20px; }
+    .location { margin: 10px 0; }
+    .fallback { color: #999; font-size: 0.9em; }
+    .popularity { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>即時附近人流查詢</h2>
+  <div id="results">載入中…</div>
+
+  <script>
+    const locations = [
+      { name: "香園圍口岸公廁（II）", popularity: null },
+      { name: "泓景匯", popularity: 45 },
+      { name: "D2 Place", popularity: 63 },
+      { name: "D2 Place Two", popularity: null },
+      { name: "宇晴匯", popularity: null },
+      { name: "昇悅商場", popularity: 35 },
+      { name: "羅湖站", popularity: null },
+      { name: "落馬洲站", popularity: 70 },
+      { name: "長沙灣廣場", popularity: null }
+    ];
+
+    // 先把有 current_popularity 的排在前面
+    locations.sort((a, b) => (b.popularity !== null ? 1 : 0) - (a.popularity !== null ? 1 : 0));
+
+    const resultContainer = document.getElementById("results");
+    resultContainer.innerHTML = "";
+
+    locations.forEach(loc => {
+      const div = document.createElement("div");
+      div.className = "location";
+
+      if (loc.popularity !== null) {
+        div.innerHTML = `${loc.name}：<span class="popularity">目前人流指數為 ${loc.popularity}%，請安心前往。</span>`;
+      } else {
+        div.innerHTML = `${loc.name}：⚠️ 僅提供歷史人流參考。`;
+        div.classList.add("fallback");
+      }
+
+      resultContainer.appendChild(div);
+    });
+  </script>
+</body>
+</html>
