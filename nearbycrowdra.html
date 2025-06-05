@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流狀況查詢</title>
+<style>
+body {
+font-family: sans-serif;
+text-align: center;
+padding: 1em;
+}
+button {
+font-size: 1.2em;
+margin: 0.5em;
+padding: 0.5em 1em;
+}
+.result {
+margin-top: 1em;
+font-size: 1.1em;
+}
+</style>
+</head>
+<body>
+<h2>即時人流狀況查詢</h2>
+<div>
+語言切換：
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+</div>
+<button onclick="fetchPopularity()">更新人流狀況</button>
+<div id="results" class="result"></div>
+
+<script>
+const lang = { current: 'zh' };
+
+const placeNames = {
+'ChIJa8VZSmIPAzQRNcILND4lKQ8': '羅湖站',
+'ChIJG5pxy7gBDTQRmggTYu6hBR8': '落馬洲站',
+'ChIJk_TArswBDTQRaDIlf_5P66o': '香園圍口岸公廁（II）',
+'ChIJOxk4cZ0BDTQRJdpUB3eUDWQ': '宇晴匯',
+'ChIJh1JjT30BDTQRUl9j_mwATyI': '昇悅商場',
+'ChIJz7sOumMBDTQRKDpcKZVEaXA': '泓景匯',
+'ChIJtXHUMW4BDTQRoz-y7s2jllI': 'D2 Place',
+'ChIJp25oMW4BDTQRNKN2ERQi4fs': 'D2 Place Two',
+'ChIJA8N8fGwBDTQRZzEvRuGSt2c': '長沙灣廣場'
+};
+
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // 改為你的 API 金鑰
+
+function setLang(l) {
+lang.current = l;
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = lang.current === 'zh' ? 'zh-HK' : 'en-US';
+window.speechSynthesis.speak(msg);
+}
+
+async function fetchPopularity() {
+const resultsDiv = document.getElementById('results');
+resultsDiv.innerHTML = '查詢中...';
+
+const placeIDs = Object.keys(placeNames);
+const promises = placeIDs.map(id =>
+fetch(`https://api.app.outscraper.com/maps/search-v2?query=${id}`, {
+headers: { 'X-API-KEY': apiKey }
+}).then(res => res.json())
+);
+
+const responses = await Promise.all(promises);
+let output = '';
+const resultsWithRealTime = [];
+
+for (let i = 0; i < responses.length; i++) {
+const data = responses[i]?.[0];
+const name = placeNames[placeIDs[i]];
+let line = '';
+
+if (data?.popular_times && data?.current_popularity !== undefined) {
+line = `${name}：目前人流 ${data.current_popularity}%，屬於實時資料。`;
+resultsWithRealTime.push(line);
+} else if (data?.popular_times) {
+line = `${name}：僅提供歷史人流參考。`;
+} else {
+line = `${name}：未能取得人流資料。`;
+}
+
+output += `<div>${line}</div>`;
+}
+
+resultsDiv.innerHTML = output;
+
+// 語音播放（只播有即時資料者）
+if (resultsWithRealTime.length > 0) {
+const sayText = resultsWithRealTime.join('；');
+speak(sayText);
+}
+}
+</script>
+</body>
+</html>
