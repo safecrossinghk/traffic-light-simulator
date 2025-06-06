@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>即時附近人流情況</title>
+<style>
+body {
+font-family: "Helvetica Neue", Arial, sans-serif;
+margin: 0;
+background-color: #f4f6f8;
+color: #333;
+text-align: center;
+}
+
+h2 {
+margin-top: 20px;
+}
+
+.controls {
+margin: 15px 0;
+}
+
+button {
+padding: 10px 16px;
+margin: 5px;
+font-size: 16px;
+border: none;
+border-radius: 4px;
+background-color: #007bff;
+color: white;
+cursor: pointer;
+}
+
+button:hover {
+background-color: #0056b3;
+}
+
+#map {
+width: 100%;
+max-width: 800px;
+height: 400px;
+margin: 20px auto;
+border: 2px solid #ccc;
+border-radius: 8px;
+}
+
+#crowdData {
+max-width: 800px;
+margin: 20px auto;
+text-align: left;
+padding: 0 20px;
+}
+
+.location {
+padding: 8px 0;
+border-bottom: 1px solid #ddd;
+}
+
+@media (max-width: 600px) {
+button {
+font-size: 14px;
+padding: 8px 12px;
+}
+
+#map {
+height: 300px;
+}
+}
+</style>
+</head>
+<body>
+<h2 id="title">即時附近人流情況</h2>
+
+<div class="controls">
+<label>語言：</label>
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+<button onclick="updateCrowd()">🔄 更新人流資料</button>
+</div>
+
+<div id="map"></div>
+
+<div id="crowdData"></div>
+
+<script>
+let currentLang = "zh";
+let map;
+let userLat = 0, userLng = 0;
+let markers = [];
+
+const langText = {
+zh: {
+title: "即時附近人流情況",
+update: "更新人流資料",
+fallback: "（僅提供歷史人流）",
+noData: "（無資料）",
+current: "：目前人流為 ",
+},
+en: {
+title: "Nearby Real-Time Crowd",
+update: "Update Crowd Data",
+fallback: " (historical data only)",
+noData: " (no data)",
+current: ": Current crowd is ",
+}
+};
+
+function setLanguage(lang) {
+currentLang = lang;
+document.getElementById("title").textContent = langText[lang].title;
+updateCrowd();
+}
+
+function initMap() {
+// 取得使用者地理位置
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(position => {
+userLat = position.coords.latitude;
+userLng = position.coords.longitude;
+
+map = new google.maps.Map(document.getElementById("map"), {
+center: { lat: userLat, lng: userLng },
+zoom: 15,
+});
+
+updateCrowd(); // 初始化時自動載入
+}, error => {
+alert("無法取得您的位置，請允許定位權限。");
+});
+} else {
+alert("您的瀏覽器不支援定位功能。");
+}
+}
+
+async function updateCrowd() {
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const crowdContainer = document.getElementById("crowdData");
+crowdContainer.innerHTML = "";
+
+if (!map) return;
+
+// 清除地圖標記
+markers.forEach(m => m.setMap(null));
+markers = [];
+
+const query = "商場 OR 車站 OR 餐廳 OR 公園";
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(query)}&lat=${userLat}&lng=${userLng}&limit=10&lang=zh&region=hk&async=false`;
+
+try {
+const res = await fetch(url, {
+headers: { "X-API-KEY": apiKey }
+});
+const data = await res.json();
+const results = data.data || [];
+
+for (const place of results) {
+const name = place.title || "未知地點";
+const lat = place.location?.lat;
+const lng = place.location?.lng;
+const current = place.current_popularity;
+const popularity = place.popular_times?.find(p =>
+p.name === new Date().toLocaleString('en-US', { weekday: 'long' })
+)?.data?.[new Date().getHours()];
+
+const info = document.createElement("div");
+info.className = "location";
+
+let text = name;
+let speech = name;
+
+if (current !== undefined) {
+text += langText[currentLang].current + current + "%";
+speech += langText[currentLang].current + current + "%";
+} else if (popularity !== undefined) {
+text += langText[currentLang].fallback;
+speech += langText[currentLang].fallback;
+} else {
+text += langText[currentLang].noData;
+}
+
+info.textContent = text;
+crowdContainer.appendChild(info);
+speak(speech);
+
+if (lat && lng) {
+const color = current >= 80 ? "red" : current >= 50 ? "orange" : "green";
+const marker = new google.maps.Marker({
+position: { lat, lng },
+map: map,
+title: name,
+icon: {
+path: google.maps.SymbolPath.CIRCLE,
+scale: 10,
+fillColor: color,
+fillOpacity: 0.9,
+strokeWeight: 1,
+strokeColor: "#000"
+}
+});
+markers.push(marker);
+}
+}
+} catch (e) {
+const err = document.createElement("div");
+err.textContent = "載入人流資料失敗";
+crowdContainer.appendChild(err);
+}
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = currentLang === "zh" ? "zh-HK" : "en-US";
+window.speechSynthesis.speak(msg);
+}
+
+// 每 5 分鐘自動更新
+setInterval(updateCrowd, 5 * 60 * 1000);
+</script>
+
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=<AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY>&callback=initMap">
+</script>
+</body>
+</html>
