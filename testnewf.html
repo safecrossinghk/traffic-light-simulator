@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時附近人流情況</title>
+<style>
+#map { height: 500px; width: 100%; }
+#controls { margin: 10px; }
+</style>
+</head>
+<body>
+<h2>即時附近人流情況</h2>
+<div id="controls">
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+<button onclick="fetchNearby()">重新取得附近資料</button>
+</div>
+<div id="map"></div>
+<div id="result"></div>
+
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&libraries=places"></script>
+<script>
+let map, userMarker, lang = 'zh';
+const OUTSCRAPER_API_KEY = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg';
+
+function setLanguage(l) {
+lang = l;
+fetchNearby();
+}
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = (lang === 'zh') ? 'zh-HK' : 'en-US';
+speechSynthesis.speak(utterance);
+}
+
+function fetchNearby() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(position => {
+const userLatLng = {
+lat: position.coords.latitude,
+lng: position.coords.longitude
+};
+
+if (!map) {
+map = new google.maps.Map(document.getElementById("map"), {
+zoom: 15,
+center: userLatLng
+});
+} else {
+map.setCenter(userLatLng);
+}
+
+if (!userMarker) {
+userMarker = new google.maps.Marker({
+position: userLatLng,
+map: map,
+title: "你的位置"
+});
+} else {
+userMarker.setPosition(userLatLng);
+}
+
+const service = new google.maps.places.PlacesService(map);
+service.nearbySearch({
+location: userLatLng,
+radius: 1000,
+type: ['point_of_interest']
+}, processPlaces);
+});
+} else {
+alert("未能取得你的位置。");
+}
+}
+
+function processPlaces(results, status) {
+if (status !== google.maps.places.PlacesServiceStatus.OK || !results.length) {
+document.getElementById("result").innerText = "未能取得附近地點資訊。";
+speak(lang === 'zh' ? "未能取得附近地點資訊。" : "Failed to fetch nearby places.");
+return;
+}
+
+document.getElementById("result").innerHTML = "";
+results.slice(0, 5).forEach(place => {
+fetchCrowdData(place.name);
+});
+}
+
+function fetchCrowdData(placeName) {
+fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": OUTSCRAPER_API_KEY,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: placeName, limit: 1, language: lang })
+})
+.then(response => response.json())
+.then(data => {
+if (data.results && data.results.length > 0) {
+const result = data.results[0];
+const popularity = result.current_popularity;
+const name = (lang === 'zh') ? result.name : result.name;
+
+const level = popularity !== undefined
+? (popularity > 80 ? '非常繁忙' : popularity > 50 ? '較繁忙' : '人流正常')
+: '無即時資料';
+
+const msg = `${name}：${level}`;
+const div = document.createElement("div");
+div.textContent = msg;
+document.getElementById("result").appendChild(div);
+speak(msg);
+}
+})
+.catch(error => {
+console.error(error);
+});
+}
+
+window.onload = fetchNearby;
+</script>
+</body>
+</html>
