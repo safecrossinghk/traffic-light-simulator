@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時附近人流情況</title>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&callback=initMap">
+</script>
+<style>
+body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; text-align: center; }
+#map { height: 400px; width: 90%; margin: auto; margin-bottom: 20px; }
+.lang-buttons button { margin: 10px; }
+</style>
+</head>
+<body>
+<h2 id="title">即時附近人流情況</h2>
+<div class="lang-buttons">
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+<button onclick="fetchCrowdData()">更新人流資料</button>
+</div>
+<div id="map"></div>
+<div id="info"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // 請填入你的 Outscraper 金鑰
+
+const locations = [
+{ name_zh: '香港國際機場', name_en: 'Hong Kong International Airport', lat: 22.3080, lng: 113.9185 },
+{ name_zh: '高鐵西九龍站', name_en: 'West Kowloon Station', lat: 22.3042, lng: 114.1594 },
+{ name_zh: '羅湖口岸', name_en: 'Lo Wu Control Point', lat: 22.5336, lng: 114.1136 },
+{ name_zh: '福田口岸', name_en: 'Futian Port', lat: 22.5155, lng: 114.0685 },
+{ name_zh: '蓮塘口岸', name_en: 'Liantang Port', lat: 22.5566, lng: 114.1515 },
+{ name_zh: '深圳灣口岸', name_en: 'Shenzhen Bay Port', lat: 22.5017, lng: 113.9278 },
+{ name_zh: '港珠澳大橋口岸', name_en: 'HZMB Port', lat: 22.3040, lng: 113.9430 },
+{ name_zh: '皇崗口岸', name_en: 'Huanggang Port', lat: 22.5212, lng: 114.0714 }
+];
+
+let map;
+let lang = 'zh';
+
+function setLang(l) {
+lang = l;
+document.getElementById("title").innerText = (lang === 'zh') ? "即時附近人流情況" : "Nearby Real-time Crowd";
+fetchCrowdData();
+}
+
+function initMap() {
+map = new google.maps.Map(document.getElementById('map'), {
+zoom: 11,
+center: { lat: 22.3964, lng: 114.1095 } // 香港中心點
+});
+
+fetchCrowdData();
+}
+
+function fetchCrowdData() {
+const names = locations.map(loc => loc.name_en).join(',');
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(names)}&limit=20&language=en&region=hk`;
+
+fetch(url, {
+headers: { 'X-API-KEY': apiKey }
+})
+.then(response => response.json())
+.then(data => {
+const results = data[0]?.places || [];
+document.getElementById("info").innerHTML = ""; // 清空之前的結果
+
+locations.forEach(loc => {
+const result = results.find(r => {
+const title = (r.title || '').toLowerCase();
+return title.includes(loc.name_en.toLowerCase());
+});
+
+let text = '';
+if (result && result.popular_times) {
+const current = result.current_popularity;
+const fallback = "(即時數據缺失，僅顯示歷史參考)";
+text = (lang === 'zh')
+? `${loc.name_zh}：${current !== undefined ? `即時人流 ${current}/100` : fallback}`
+: `${loc.name_en}: ${current !== undefined ? `Current popularity ${current}/100` : fallback}`;
+} else {
+text = (lang === 'zh')
+? `${loc.name_zh}：未知地點（無資料）`
+: `${loc.name_en}: Unknown location (no data)`;
+}
+
+document.getElementById("info").innerHTML += `<p>${text}</p>`;
+
+new google.maps.Marker({
+position: { lat: loc.lat, lng: loc.lng },
+map,
+title: loc.name_en
+});
+});
+})
+.catch(err => {
+console.error('API 錯誤:', err);
+document.getElementById("info").innerHTML = (lang === 'zh')
+? "載入人流資料時發生錯誤"
+: "Failed to load crowd data.";
+});
+}
+</script>
+</body>
+</html>
