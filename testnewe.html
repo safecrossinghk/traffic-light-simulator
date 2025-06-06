@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時附近人流情況</title>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&callback=initMap">
+</script>
+<style>
+body { font-family: "PingFang TC", "Microsoft JhengHei", sans-serif; text-align: center; }
+#map { height: 400px; width: 90%; margin: auto; margin-bottom: 20px; }
+.lang-buttons button { margin: 10px; }
+</style>
+</head>
+<body>
+<h2 id="title">即時附近人流情況</h2>
+<div class="lang-buttons">
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+<button onclick="fetchNearbyPlaces()">更新人流資料</button>
+</div>
+<div id="map"></div>
+<div id="info"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // 請填入你自己的 Outscraper API 金鑰
+let lang = 'zh';
+let map, userMarker;
+
+function setLang(l) {
+lang = l;
+document.getElementById("title").innerText = (lang === 'zh') ? "即時附近人流情況" : "Nearby Real-time Crowd";
+fetchNearbyPlaces();
+}
+
+function initMap() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(position => {
+const userLatLng = {
+lat: position.coords.latitude,
+lng: position.coords.longitude
+};
+
+map = new google.maps.Map(document.getElementById('map'), {
+zoom: 15,
+center: userLatLng
+});
+
+userMarker = new google.maps.Marker({
+position: userLatLng,
+map,
+title: (lang === 'zh') ? "你的位置" : "Your location",
+icon: "http://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+});
+
+fetchNearbyPlaces(userLatLng);
+}, () => {
+alert((lang === 'zh') ? "無法取得你的定位。" : "Unable to retrieve your location.");
+});
+} else {
+alert((lang === 'zh') ? "你的瀏覽器不支援定位功能。" : "Geolocation is not supported by this browser.");
+}
+}
+
+function fetchNearbyPlaces(userLatLng) {
+if (!userLatLng && userMarker) {
+userLatLng = userMarker.getPosition().toJSON();
+}
+if (!userLatLng) return;
+
+const url = `https://api.app.outscraper.com/maps/search-v2?query=attractions&lat=${userLatLng.lat}&lon=${userLatLng.lng}&limit=10&language=en&region=hk`;
+
+fetch(url, {
+headers: { 'X-API-KEY': apiKey }
+})
+.then(response => response.json())
+.then(data => {
+const results = data[0]?.places || [];
+document.getElementById("info").innerHTML = "";
+
+if (results.length === 0) {
+document.getElementById("info").innerHTML = (lang === 'zh')
+? "附近無可顯示地點或資料"
+: "No nearby data available.";
+}
+
+results.forEach(place => {
+const title = place.title || "未知地點";
+const popularity = place.current_popularity;
+const hasRealtime = popularity !== undefined;
+
+const text = (lang === 'zh')
+? `${title}：${hasRealtime ? `即時人流 ${popularity}/100` : "(僅提供歷史人流參考)"}`
+: `${title}: ${hasRealtime ? `Current popularity ${popularity}/100` : "(Only historical data available)"}`;
+
+document.getElementById("info").innerHTML += `<p>${text}</p>`;
+
+if (place.gps_lat && place.gps_lon) {
+new google.maps.Marker({
+position: { lat: place.gps_lat, lng: place.gps_lon },
+map,
+title
+});
+}
+});
+})
+.catch(err => {
+console.error("API 錯誤", err);
+document.getElementById("info").innerHTML = (lang === 'zh')
+? "資料載入失敗"
+: "Failed to load data.";
+});
+}
+</script>
+</body>
+</html>
