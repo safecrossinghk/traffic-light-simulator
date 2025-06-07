@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>附近地點人流情況</title>
+</head>
+<body>
+  <h2>📍 附近地點人流情況</h2>
+  <div id="results"></div>
+
+  <script>
+    const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // 🛠 請替換為你的 Outscraper API 金鑰
+
+    async function fetchNearbyPopularity(lat, lng) {
+      const encoded = encodeURIComponent(`${lat},${lng}`);
+      const url = `https://api.app.outscraper.com/maps/search-v2?query=${encoded}&limit=5`;
+
+      try {
+        const response = await fetch(url, {
+          headers: { "X-API-KEY": apiKey }
+        });
+        const data = await response.json();
+        const results = document.getElementById('results');
+
+        if (data.length === 0) {
+          results.innerHTML = "<p>⚠️ 無地點資料</p>";
+          return;
+        }
+
+        data.forEach(place => {
+          const popularity = place?.popular_times?.[new Date().getDay()]?.data?.[new Date().getHours()];
+          const p = document.createElement('p');
+          p.textContent = `${place.title}：${popularity !== undefined ? `目前人流 ${popularity}` : "僅提供歷史人流資料"}`;
+          results.appendChild(p);
+        });
+      } catch (e) {
+        document.getElementById('results').innerHTML = "<p>⚠️ 資料獲取失敗</p>";
+      }
+    }
+
+    navigator.geolocation.getCurrentPosition(pos => {
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      fetchNearbyPopularity(lat, lng);
+    }, err => {
+      document.getElementById('results').innerHTML = "<p>⚠️ 無法取得 GPS 位置</p>";
+    });
+  </script>
+</body>
+</html>
