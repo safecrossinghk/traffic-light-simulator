@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>指定地點人流情況</title>
+</head>
+<body>
+  <h2>📍 指定地點人流情況</h2>
+  <div id="results"></div>
+
+  <script>
+    const locations = [
+      { name: '香港國際機場', lat: 22.3080, lng: 113.9185 },
+      { name: '高鐵西九龍站', lat: 22.3042, lng: 114.1594 },
+      { name: '羅湖口岸', lat: 22.5336, lng: 114.1136 },
+      { name: '福田口岸', lat: 22.5155, lng: 114.0685 },
+      { name: '蓮塘口岸', lat: 22.5566, lng: 114.1515 },
+      { name: '深圳灣口岸', lat: 22.5017, lng: 113.9278 },
+      { name: '港珠澳大橋口岸', lat: 22.3040, lng: 113.9430 },
+      { name: '皇崗口岸', lat: 22.5212, lng: 114.0714 }
+    ];
+
+    const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // 🛠 請替換為你的 Outscraper API 金鑰
+
+    async function fetchPopularity(location) {
+      const encoded = encodeURIComponent(`${location.lat},${location.lng}`);
+      const url = `https://api.app.outscraper.com/maps/search-v2?query=${encoded}&limit=1`;
+
+      try {
+        const response = await fetch(url, {
+          headers: { "X-API-KEY": apiKey }
+        });
+        const data = await response.json();
+        const place = data[0];
+
+        const popularity = place?.popular_times?.[new Date().getDay()]?.data?.[new Date().getHours()];
+        return popularity !== undefined ? `${location.name}：目前人流 ${popularity}（估計）` : `${location.name}：僅提供歷史人流資料`;
+      } catch (e) {
+        return `${location.name}：資料獲取失敗`;
+      }
+    }
+
+    (async () => {
+      const results = document.getElementById('results');
+      for (let loc of locations) {
+        const info = await fetchPopularity(loc);
+        const p = document.createElement('p');
+        p.textContent = info;
+        results.appendChild(p);
+      }
+    })();
+  </script>
+</body>
+</html>
