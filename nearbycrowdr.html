@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>附近人流實時播報</title>
+<style>
+body { font-family: Arial; padding: 1em; background: #f9f9f9; }
+.location { margin: 1em 0; padding: 1em; background: #fff; border-radius: 8px; }
+.status { font-weight: bold; }
+#map { height: 300px; margin-bottom: 1em; }
+button { margin-right: 10px; }
+</style>
+</head>
+<body>
+<h2>📍 附近人流實時播報</h2>
+<button onclick="switchLang('zh')">中文</button>
+<button onclick="switchLang('en')">English</button>
+<div id="map"></div>
+<div id="results"></div>
+<p id="status"></p>
+
+<script>
+let lang = 'zh';
+const voiceMap = {
+zh: {
+quiet: "quiet.mp3",
+normal: "normal.mp3",
+crowded: "crowded.mp3",
+fallback: "僅提供歷史人流資料"
+},
+en: {
+quiet: "quiet_en.mp3",
+normal: "normal_en.mp3",
+crowded: "crowded_en.mp3",
+fallback: "Only historical data available"
+}
+};
+
+function switchLang(selected) {
+lang = selected;
+}
+
+function playAudio(level) {
+const audio = new Audio(voiceMap[lang][level]);
+audio.play();
+}
+
+function fetchNearbyPlaces(lat, lng) {
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const radius = 1000;
+
+fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+query: "hotels, malls, transit",
+limit: 5,
+lat,
+lng,
+radius
+})
+})
+.then(res => res.json())
+.then(data => {
+const container = document.getElementById("results");
+container.innerHTML = "";
+
+if (!data.data || data.data.length === 0) {
+container.innerHTML = `<p>${voiceMap[lang].fallback}</p>`;
+return;
+}
+
+data.data.forEach(place => {
+const div = document.createElement("div");
+div.className = "location";
+
+const name = place.name || "未知地點";
+let level = "normal";
+let levelText = "";
+
+if (place.popular_times_live !== undefined) {
+const val = place.popular_times_live;
+if (val < 30) level = "quiet";
+else if (val >= 70) level = "crowded";
+else level = "normal";
+levelText = `即時人流：${val}%`;
+playAudio(level);
+} else {
+levelText = voiceMap[lang].fallback;
+}
+
+div.innerHTML = `<div><strong>${name}</strong></div><div class="status">${levelText}</div>`;
+container.appendChild(div);
+});
+})
+.catch(err => {
+document.getElementById("results").innerHTML = `<p>${voiceMap[lang].fallback}</p>`;
+console.error(err);
+});
+}
+
+function initMap(lat, lng) {
+const map = new google.maps.Map(document.getElementById("map"), {
+center: { lat, lng },
+zoom: 15
+});
+new google.maps.Marker({ position: { lat, lng }, map });
+}
+
+function locateAndFetch() {
+if (!navigator.geolocation) {
+alert("此裝置不支援 GPS 定位");
+return;
+}
+navigator.geolocation.getCurrentPosition(pos => {
+const { latitude, longitude } = pos.coords;
+initMap(latitude, longitude);
+fetchNearbyPlaces(latitude, longitude);
+}, () => {
+alert("無法取得位置");
+});
+}
+
+locateAndFetch();
+setInterval(locateAndFetch, 5 * 60 * 1000); // 每 5 分鐘更新
+</script>
+
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&callback=initMap">
+</script>
+</body>
+</html>
