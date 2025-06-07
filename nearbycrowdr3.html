@@ -1,0 +1,57 @@
+<!-- nearbycrowd_fixed.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>人流實時查詢（指定地點）</title>
+<style>
+body { font-family: sans-serif; }
+#output { margin-top: 1em; }
+.location-block { margin-bottom: 1em; border-bottom: 1px solid #ccc; padding-bottom: 0.5em; }
+</style>
+</head>
+<body>
+<h1>港口地點人流查詢</h1>
+<button onclick="fetchFixedLocations()">🔄 手動更新</button>
+<div id="output">載入中...</div>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // ← 換成你的 Outscraper 金鑰
+const locations = [
+{ name: "香港國際機場", lat: 22.3080, lng: 113.9185 },
+{ name: "高鐵西九龍站", lat: 22.3042, lng: 114.1594 },
+{ name: "羅湖口岸", lat: 22.5336, lng: 114.1136 },
+{ name: "福田口岸", lat: 22.5155, lng: 114.0685 },
+{ name: "蓮塘口岸", lat: 22.5566, lng: 114.1515 },
+{ name: "深圳灣口岸", lat: 22.5017, lng: 113.9278 },
+{ name: "港珠澳大橋口岸", lat: 22.3040, lng: 113.9430 },
+{ name: "皇崗口岸", lat: 22.5212, lng: 114.0714 }
+];
+
+async function fetchFixedLocations() {
+document.getElementById('output').innerHTML = '🔄 正在載入資料...';
+let html = '';
+for (const loc of locations) {
+try {
+const url = `https://api.outscraper.com/maps/search-v2?query=${encodeURIComponent(loc.name)}&limit=1&lat=${loc.lat}&lng=${loc.lng}`;
+const res = await fetch(url, {
+headers: { 'X-API-KEY': apiKey }
+});
+const data = await res.json();
+const place = data.data?.places[0];
+const popularity = place?.popular_times?.[new Date().getDay()] || null;
+const current = place?.current_popularity ?? null;
+const crowd = current !== null ? `即時人流：${current}%` : '⚠️ 僅提供歷史人流資料';
+html += `<div class="location-block"><strong>${loc.name}</strong><br>${crowd}</div>`;
+} catch (e) {
+html += `<div class="location-block"><strong>${loc.name}</strong><br>❌ 無法取得資料</div>`;
+}
+}
+document.getElementById('output').innerHTML = html;
+}
+
+fetchFixedLocations();
+setInterval(fetchFixedLocations, 5 * 60 * 1000);
+</script>
+</body>
+</html>
