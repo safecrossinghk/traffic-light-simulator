@@ -1,0 +1,66 @@
+<!-- nearbycrowd_nearby.html -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>人流實時查詢（附近地點）</title>
+<style>
+body { font-family: sans-serif; }
+#output { margin-top: 1em; }
+.location-block { margin-bottom: 1em; border-bottom: 1px solid #ccc; padding-bottom: 0.5em; }
+</style>
+</head>
+<body>
+<h1>附近地點人流查詢</h1>
+<button onclick="getLocationAndFetch()">📍 重新定位</button>
+<div id="output">🔄 取得 GPS 中...</div>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // ← 請填入你的金鑰
+
+async function fetchNearby(lat, lng) {
+document.getElementById('output').innerHTML = '🔄 正在查詢附近人流資料...';
+try {
+const url = `https://api.outscraper.com/maps/search-v2?query=station&limit=5&lat=${lat}&lng=${lng}`;
+const res = await fetch(url, {
+headers: { 'X-API-KEY': apiKey }
+});
+const json = await res.json();
+let html = '';
+if (!json.data?.places?.length) {
+html = '❌ 無地點資料';
+} else {
+json.data.places.forEach(place => {
+const name = place.title || '未知地點';
+const current = place.current_popularity;
+const crowd = current !== undefined
+? `即時人流：${current}%`
+: '⚠️ 僅提供歷史人流資料';
+html += `<div class="location-block"><strong>${name}</strong><br>${crowd}</div>`;
+});
+}
+document.getElementById('output').innerHTML = html;
+} catch (e) {
+document.getElementById('output').innerHTML = '⚠️ 錯誤：無法取得資料';
+}
+}
+
+function getLocationAndFetch() {
+document.getElementById('output').innerHTML = '📡 正在定位中...';
+if (!navigator.geolocation) {
+document.getElementById('output').innerHTML = '❌ 不支援定位功能';
+return;
+}
+navigator.geolocation.getCurrentPosition(pos => {
+const { latitude, longitude } = pos.coords;
+fetchNearby(latitude, longitude);
+}, () => {
+document.getElementById('output').innerHTML = '❌ 定位失敗';
+});
+}
+
+getLocationAndFetch();
+setInterval(getLocationAndFetch, 5 * 60 * 1000);
+</script>
+</body>
+</html>
