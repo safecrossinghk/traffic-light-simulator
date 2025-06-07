@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>附近人流情況</title>
+<style>
+body { font-family: sans-serif; margin: 20px; }
+#info { margin-top: 20px; }
+.location { margin-bottom: 15px; padding: 10px; border: 1px solid #ccc; }
+.fallback { color: gray; font-style: italic; }
+button { margin-right: 10px; }
+</style>
+</head>
+<body>
+<h1>📍 附近人流情況</h1>
+<div>
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+<button onclick="fetchNearby()">🔁 手動更新</button>
+</div>
+<div id="info">載入中...</div>
+
+<audio id="voice" src=""></audio>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // 替換為你的金鑰
+let currentLang = 'zh';
+
+function setLang(lang) {
+currentLang = lang;
+fetchNearby();
+}
+
+async function fetchNearby() {
+document.getElementById('info').innerHTML = '🔄 正在更新...';
+
+try {
+const pos = await getCurrentPosition();
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+
+const endpoint = `https://api.outscraper.com/maps/search-v2?query=transit+station&lat=${lat}&lng=${lng}&limit=5&language=en`;
+const res = await fetch(endpoint, {
+headers: {
+'X-API-KEY': apiKey,
+'Content-Type': 'application/json'
+}
+});
+
+if (!res.ok) throw new Error('API 錯誤：' + res.status);
+
+const data = await res.json();
+if (!data.data || !Array.isArray(data.data) || data.data.length === 0) throw new Error('無地點資料');
+
+const places = data.data;
+const container = document.getElementById('info');
+container.innerHTML = '';
+
+for (const place of places) {
+const div = document.createElement('div');
+div.className = 'location';
+const name = place.title;
+const popularity = place.popular_times?.[new Date().getDay()]?.[new Date().getHours()];
+let status = '';
+let voiceFile = '';
+
+if (typeof place.current_popularity === 'number') {
+const level = place.current_popularity;
+if (level >= 70) {
+status = currentLang === 'zh' ? '人流擠迫' : 'Crowded';
+voiceFile = currentLang === 'zh' ? 'crowded.mp3' : 'crowded_en.mp3';
+} else if (level >= 30) {
+status = currentLang === 'zh' ? '人流正常' : 'Normal crowd';
+voiceFile = currentLang === 'zh' ? 'normal.mp3' : 'normal_en.mp3';
+} else {
+status = currentLang === 'zh' ? '人流稀疏' : 'Quiet';
+voiceFile = currentLang === 'zh' ? 'quiet.mp3' : 'quiet_en.mp3';
+}
+} else {
+status = currentLang === 'zh' ? '僅提供歷史人流資料' : 'Only historical data available';
+div.classList.add('fallback');
+}
+
+div.innerHTML = `<strong>${name}</strong><br/>${status}`;
+container.appendChild(div);
+
+if (voiceFile) {
+playVoice(voiceFile);
+}
+}
+} catch (e) {
+console.error(e);
+document.getElementById('info').innerHTML = '❌ 無法載入資料，請稍後再試';
+}
+}
+
+function playVoice(file) {
+const audio = document.getElementById('voice');
+audio.src = file;
+audio.play().catch(e => console.warn('語音播放失敗', e));
+}
+
+function getCurrentPosition() {
+return new Promise((resolve, reject) => {
+navigator.geolocation.getCurrentPosition(resolve, reject, { enableHighAccuracy: true });
+});
+}
+
+// 每 5 分鐘自動更新
+setInterval(fetchNearby, 300000);
+window.onload = fetchNearby;
+</script>
+</body>
+</html>
