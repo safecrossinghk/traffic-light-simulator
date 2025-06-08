@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>即時附近人流查詢</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; text-align: center; }
+.location { margin-bottom: 15px; }
+.status { font-weight: bold; }
+button { margin: 10px 5px; padding: 10px; font-size: 16px; }
+</style>
+</head>
+<body>
+
+<h2>即時附近人流查詢</h2>
+
+<div>
+語言切換：
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+
+<div>
+<button onclick="getNearbyPlaces()">取得附近人流</button>
+</div>
+
+<div id="locations"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // Outscraper API Key
+const googleApiKey = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY"; // Google API Key
+const language = { current: 'zh' };
+
+const audioFiles = {
+zh: {
+quiet: new Audio("quiet.mp3"),
+normal: new Audio("normal.mp3"),
+crowded: new Audio("crowded.mp3")
+},
+en: {
+quiet: new Audio("quiet_en.mp3"),
+normal: new Audio("normal_en.mp3"),
+crowded: new Audio("crowded_en.mp3")
+}
+};
+
+function setLanguage(lang) {
+language.current = lang;
+document.getElementById("locations").innerHTML = "";
+}
+
+function playAudio(status) {
+const audio = audioFiles[language.current][status];
+if (audio) {
+audio.pause();
+audio.currentTime = 0;
+audio.play().catch(() => {});
+}
+}
+
+function getStatusText(status) {
+const texts = {
+zh: {
+quiet: "目前人流非常少，十分暢通。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。"
+},
+en: {
+quiet: "Very low crowd. Area is clear.",
+normal: "Crowd level is normal. You may proceed safely.",
+crowded: "The area is crowded. Please maintain social distance."
+}
+};
+return texts[language.current][status];
+}
+
+function getNearbyPlaces() {
+if (!navigator.geolocation) {
+alert("你的瀏覽器不支援地理定位。");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(async (position) => {
+const lat = position.coords.latitude;
+const lng = position.coords.longitude;
+const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${lat},${lng}&radius=1500&type=transit_station&key=${googleApiKey}`;
+
+try {
+const proxyUrl = "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+const response = await fetch(proxyUrl);
+const result = await response.json();
+const data = JSON.parse(result.contents);
+const topPlaces = data.results.slice(0, 3).map(p => p.name);
+
+document.getElementById("locations").innerHTML = "";
+fetchCrowdData(topPlaces);
+} catch (e) {
+console.error(e);
+alert("無法取得附近地點。");
+}
+}, () => {
+alert("無法取得你的地理位置。");
+});
+}
+
+async function fetchCrowdData(places) {
+for (const place of places) {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<span class="status">載入中...</span>`;
+document.getElementById("locations").appendChild(div);
+
+try {
+const response = await fetch(`https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1`, {
+method: "GET",
+headers: {
+"X-API-KEY": apiKey
+}
+});
+
+const data = await response.json();
+
+if (!data || data.length === 0) {
+div.querySelector(".status").innerText = "找不到人流資料 / No data found";
+continue;
+}
+
+const popularity = data[0]?.popular_times || [];
+let status = "normal";
+const currentHour = new Date().getHours();
+const today = new Date().getDay();
+const todayData = popularity[today];
+
+if (todayData && todayData.data) {
+const value = todayData.data[currentHour];
+if (value < 20) status = 'quiet';
+else if (value < 60) status = 'normal';
+else status = 'crowded';
+} else {
+div.querySelector(".status").innerText = "僅提供歷史人流資料";
+continue;
+}
+
+div.querySelector(".status").innerText = getStatusText(status);
+playAudio(status);
+} catch (e) {
+console.error(e);
+div.querySelector(".status").innerText = "載入失敗 / Error loading data";
+}
+}
+}
+</script>
+
+</body>
+</html>
