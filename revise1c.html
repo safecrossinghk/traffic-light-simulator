@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>即時附近人流查詢</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+font-family: Arial, sans-serif;
+text-align: center;
+font-size: 1.2em;
+background-color: #f0f0f0;
+margin: 0;
+padding: 0;
+}
+#map {
+height: 300px;
+width: 100%;
+margin: auto;
+border: 1px solid #999;
+}
+#crowdStatus {
+margin: 15px;
+font-weight: bold;
+}
+button {
+font-size: 1em;
+padding: 10px 20px;
+margin: 10px;
+border: none;
+background-color: #007BFF;
+color: white;
+border-radius: 6px;
+}
+button:hover {
+background-color: #0056b3;
+}
+</style>
+</head>
+<body>
+<h1>即時附近人流查詢</h1>
+<p id="crowdStatus">正在取得資料...</p>
+<div id="map"></div>
+<div>
+<button onclick="speak('zh')">📢 粵語語音</button>
+<button onclick="speak('en')">🔊 English Audio</button>
+</div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const places = [
+"旺角站", "尖沙咀海港城", "銅鑼灣時代廣場", "上環港澳碼頭",
+"紅磡過海隧道", "中環碼頭", "深水埗福榮街", "沙田新城市廣場"
+];
+
+let map, marker;
+let zhText = "", enText = "";
+
+function speak(lang) {
+const utterance = new SpeechSynthesisUtterance(lang === 'zh' ? zhText : enText);
+utterance.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+speechSynthesis.cancel(); // 停止前一段語音
+speechSynthesis.speak(utterance);
+}
+
+function initMap() {
+navigator.geolocation.getCurrentPosition((pos) => {
+const latlng = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+map = new google.maps.Map(document.getElementById("map"), {
+center: latlng,
+zoom: 13,
+});
+marker = new google.maps.Marker({ position: latlng, map: map });
+
+fetchAllPlaces();
+setInterval(fetchAllPlaces, 5 * 60 * 1000); // 每 5 分鐘更新
+});
+}
+
+function fetchAllPlaces() {
+document.getElementById("crowdStatus").innerText = "正在取得資料...";
+const promises = places.map(name => fetchPlaceCrowd(name));
+Promise.all(promises).then(() => {
+console.log("全部地點查詢完成");
+});
+}
+
+async function fetchPlaceCrowd(name) {
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(name)}&limit=1&lang=zh-tw&region=hk`;
+
+try {
+const res = await fetch(url, {
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+}
+});
+const data = await res.json();
+const place = data[0];
+
+if (!place) return;
+
+const pop = place.current_popularity;
+if (typeof pop === "number") {
+let zh, en;
+if (pop >= 70) {
+zh = `${name}人流繁忙，請小心前往。`;
+en = `${name} is crowded. Please be cautious.`;
+} else if (pop >= 30) {
+zh = `${name}人流適中，請保持警覺。`;
+en = `${name} is moderately busy. Stay alert.`;
+} else {
+zh = `${name}人流不繁忙，請安心前往。`;
+en = `${name} is not crowded. You may proceed.`;
+}
+document.getElementById("crowdStatus").innerText = zh;
+zhText = zh;
+enText = en;
+} else {
+const zh = `${name}僅提供歷史人流資料。`;
+const en = `Only historical data available for ${name}.`;
+document.getElementById("crowdStatus").innerText = zh;
+zhText = zh;
+enText = en;
+}
+
+map.setCenter({ lat: place.coords_lat, lng: place.coords_lng });
+marker.setPosition({ lat: place.coords_lat, lng: place.coords_lng });
+
+} catch (err) {
+console.error("錯誤：", err);
+document.getElementById("crowdStatus").innerText = `無法取得${name}資料。`;
+}
+}
+</script>
+
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&callback=initMap"></script>
+</body>
+</html>
