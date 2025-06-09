@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8" />
+<title>Outscraper 人流測試</title>
+</head>
+<body>
+<h2>Outscraper 即時人流資料測試</h2>
+<button onclick="fetchPopularTimes()">取得附近人流</button>
+<pre id="result">（按下按鈕以查詢）</pre>
+
+<script>
+async function fetchPopularTimes() {
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const url = "https://api.app.outscraper.com/maps/search-v2?query=7-11&lat=22.3188&lon=114.1798&limit=1&language=zh&region=hk";
+
+try {
+const response = await fetch(url, {
+headers: {
+"X-API-KEY": apiKey,
+"Accept": "application/json"
+}
+});
+
+const data = await response.json();
+console.log(data);
+
+const place = data.data?.[0];
+if (place) {
+let text = `地點：${place.name}\n地址：${place.address}\n\n`;
+if (place.current_popularity !== undefined) {
+text += `目前即時人流：${place.current_popularity}`;
+} else {
+text += "⚠️ 僅提供歷史人流資料（current_popularity 不存在）";
+}
+document.getElementById("result").textContent = text;
+} else {
+document.getElementById("result").textContent = "⚠️ 無資料（data.data 為空）";
+}
+} catch (err) {
+document.getElementById("result").textContent = "🚫 發生錯誤：" + err;
+}
+}
+</script>
+</body>
+</html>
