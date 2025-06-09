@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Outscraper 即時人流資料測試</title>
+</head>
+<body>
+<h2>Outscraper 即時人流資料測試</h2>
+<button onclick="getCrowd()">立即查詢朗豪坊人流</button>
+<p id="result">尚未查詢</p>
+
+<script>
+async function getCrowd() {
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg';
+const encodedQuery = encodeURIComponent("Langham Place, Mong Kok, Hong Kong");
+const url = `https://api.app.outscraper.com/maps/search-v2?q=${encodedQuery}&limit=1&async=false`;
+
+try {
+const response = await fetch(url, {
+method: 'GET',
+headers: {
+'X-API-KEY': apiKey,
+'Accept': 'application/json'
+}
+});
+
+const data = await response.json();
+console.log(data);
+
+if (data && data.data && data.data.length > 0) {
+const place = data.data[0];
+const popularity = place.current_popularity !== undefined
+? `即時人流指數：${place.current_popularity}`
+: '⚠️ 此地點暫無即時人流資料（只有歷史資料）';
+document.getElementById('result').innerText = `地點：${place.title}\n${popularity}`;
+} else {
+document.getElementById('result').innerText = '⚠️ 找不到地點資料';
+}
+} catch (error) {
+console.error('錯誤：', error);
+document.getElementById('result').innerText = '⚠️ 查詢時發生錯誤';
+}
+}
+</script>
+</body>
+</html>
