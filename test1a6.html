@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>Outscraper 即時人流資料測試（加強錯誤處理）</title>
+</head>
+<body>
+<h2>Outscraper 即時人流資料測試</h2>
+<button onclick="getCrowd()">立即查詢朗豪坊人流</button>
+<pre id="result">尚未查詢</pre>
+
+<script>
+async function getCrowd() {
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg';
+const query = 'Langham Place, Mong Kok, Hong Kong'; // 🔁 請勿使用中文
+const url = `https://api.app.outscraper.com/maps/search-v2?q=${encodeURIComponent(query)}&limit=1&async=false`;
+
+document.getElementById('result').textContent = '查詢中...';
+
+try {
+const response = await fetch(url, {
+method: 'GET',
+headers: {
+'X-API-KEY': apiKey,
+'Accept': 'application/json'
+}
+});
+
+if (!response.ok) {
+const errorText = await response.text();
+throw new Error(`HTTP錯誤 ${response.status}: ${errorText}`);
+}
+
+let data;
+try {
+data = await response.json();
+} catch (jsonError) {
+throw new Error('解析回傳資料失敗，可能不是有效的 JSON。');
+}
+
+if (data.error) {
+throw new Error(`API錯誤: ${data.errorMessage || '未知錯誤'}`);
+}
+
+if (data?.data?.length > 0) {
+const place = data.data[0];
+const popularity = place.current_popularity !== undefined
+? `即時人流指數：${place.current_popularity}`
+: '⚠️ 無即時人流資料（僅歷史）';
+document.getElementById('result').textContent = `地點：${place.title}\n${popularity}`;
+} else {
+document.getElementById('result').textContent = '⚠️ 找不到地點資料';
+}
+} catch (error) {
+console.error('錯誤：', error);
+document.getElementById('result').textContent = `⚠️ 發生錯誤：${error.message}`;
+}
+}
+</script>
+</body>
+</html>
