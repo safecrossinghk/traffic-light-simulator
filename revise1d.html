@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>即時附近人流查詢</title>
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+button { margin: 5px; padding: 10px; }
+.location-block { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<h2>即時附近人流查詢</h2>
+<div>
+語言切換：
+<button onclick="setLanguage('zh')">中文</button>
+<button onclick="setLanguage('en')">English</button>
+</div>
+<button onclick="getNearbyCrowd()">取得附近人流</button>
+<div id="results"></div>
+
+<script>
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // 改成你自己的金鑰
+let currentLanguage = "zh";
+
+function setLanguage(lang) {
+currentLanguage = lang;
+}
+
+async function getNearbyCrowd() {
+document.getElementById("results").innerHTML = "正在取得資料...";
+try {
+const pos = await getCurrentPosition();
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+
+const url = `https://api.app.outscraper.com/maps/search-v2?query=shopping mall&lat=${lat}&lng=${lng}&limit=3&language=zh&region=hk`;
+
+const response = await fetch(url, {
+headers: { "X-API-KEY": API_KEY }
+});
+const data = await response.json();
+
+let html = "";
+for (const place of data.data) {
+const name = place.name;
+const popularity = place.current_popularity;
+let statusText = "";
+let audioFile = "";
+
+if (popularity !== null && popularity !== undefined) {
+if (popularity >= 75) {
+statusText = currentLanguage === "zh" ? "人流非常擁擠" : "Very crowded";
+audioFile = currentLanguage === "zh" ? "audio/crowded.mp3" : "audio/crowded_en.mp3";
+} else if (popularity >= 40) {
+statusText = currentLanguage === "zh" ? "人流一般" : "Moderate crowd";
+audioFile = currentLanguage === "zh" ? "audio/normal.mp3" : "audio/normal_en.mp3";
+} else {
+statusText = currentLanguage === "zh" ? "人流稀少" : "Quiet area";
+audioFile = currentLanguage === "zh" ? "audio/quiet.mp3" : "audio/quiet_en.mp3";
+}
+} else {
+statusText = currentLanguage === "zh" ? "僅提供歷史人流資料" : "Only historical data available";
+audioFile = "";
+}
+
+html += `<div class="location-block">
+<strong>${name}</strong><br/>
+${statusText}
+</div>`;
+
+if (audioFile) playAudio(audioFile);
+}
+
+document.getElementById("results").innerHTML = html;
+} catch (e) {
+document.getElementById("results").innerText = "無法取得人流資料：" + e.message;
+}
+}
+
+function playAudio(src) {
+const audio = new Audio(src);
+audio.play().catch(e => console.warn("音訊播放失敗", e));
+}
+
+function getCurrentPosition() {
+return new Promise((resolve, reject) => {
+navigator.geolocation.getCurrentPosition(resolve, reject);
+});
+}
+</script>
+</body>
+</html>
