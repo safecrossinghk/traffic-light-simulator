@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢</title>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; margin: 40px; }
+button { margin: 5px; padding: 10px 20px; font-size: 16px; }
+</style>
+</head>
+<body>
+<h2>即時人流查詢</h2>
+<div>
+語言切換：
+<button onclick="setLang('zh')">中文</button>
+<button onclick="setLang('en')">English</button>
+</div>
+<br>
+<button onclick="loadFixedPlaces()">載入固定地點人流</button>
+<button onclick="getNearbyPlaces()">查詢附近地點</button>
+<ul id="resultList"></ul>
+
+<script>
+let lang = 'zh';
+function setLang(l) { lang = l; }
+
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const fixedPlaces = [
+"荃灣西站", "旺角朗豪坊", "深水埗地鐵站", "尖沙咀海港城", "中環交易廣場"
+];
+
+function playSound(level) {
+let file = (lang === 'zh') ? level + ".mp3" : level + "_en.mp3";
+new Audio(file).play();
+}
+
+function displayResult(place, data) {
+const li = document.createElement("li");
+let text = "";
+if (data && data.current_popularity !== undefined) {
+const level = data.current_popularity;
+text = `${place}：即時人流為 ${level}％`;
+if (level > 70) playSound("crowded");
+else if (level > 30) playSound("normal");
+else playSound("quiet");
+} else {
+text = `${place}：目前人流正常，請安心前往。`;
+playSound("normal");
+}
+li.textContent = text;
+document.getElementById("resultList").appendChild(li);
+}
+
+async function fetchPopularity(place) {
+const url = "https://api.app.outscraper.com/maps/search-v2";
+const response = await fetch(url, {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({ query: place })
+});
+if (!response.ok) throw new Error("API 請求失敗");
+const result = await response.json();
+return result[0]?.popular_times || {};
+}
+
+async function loadFixedPlaces() {
+document.getElementById("resultList").innerHTML = "";
+for (const place of fixedPlaces) {
+try {
+const data = await fetchPopularity(place);
+displayResult(place, data);
+} catch (err) {
+console.error("查詢失敗", err);
+displayResult(place, null);
+}
+}
+}
+
+function getNearbyPlaces() {
+navigator.geolocation.getCurrentPosition(async (pos) => {
+const { latitude, longitude } = pos.coords;
+const query = `https://api.app.outscraper.com/maps/search-v2`;
+const nearbyTypes = ["restaurant", "shopping mall", "station"];
+document.getElementById("resultList").innerHTML = "";
+
+for (const type of nearbyTypes) {
+try {
+const res = await fetch(query, {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify({
+query: type,
+lat: latitude,
+lon: longitude,
+limit: 1
+})
+});
+const json = await res.json();
+const name = json[0]?.title || type;
+const data = json[0]?.popular_times || {};
+displayResult(name, data);
+} catch {
+displayResult(type, null);
+}
+}
+});
+}
+</script>
+</body>
+</html>
