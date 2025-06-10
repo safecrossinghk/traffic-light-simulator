@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>人流查詢測試</title>
+<style>
+body { font-family: Arial; padding: 20px; text-align: center; background: #f7f7f7; }
+.location { margin-top: 20px; }
+.status { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>固定地點人流查詢（測試用）</h2>
+<div>
+<button onclick="fetchCrowdData()">取得人流資料</button>
+</div>
+
+<div id="locations"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const testPlaces = ["竹園商場超級市場", "黃大仙消防局", "鳳德公園"];
+
+const textMap = {
+quiet: "目前人流非常少，十分暢通。",
+normal: "目前人流正常，請安心前往。",
+crowded: "現場人流較多，請注意保持距離。",
+fallback: "僅提供歷史資料 / Only historical data"
+};
+
+async function fetchCrowdData() {
+const container = document.getElementById("locations");
+container.innerHTML = "";
+
+for (const place of testPlaces) {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<strong>${place}</strong>：<span class="status">查詢中...</span>`;
+container.appendChild(div);
+
+try {
+const url = `https://api.outscraper.com/maps/search?query=${encodeURIComponent(place)}&limit=1`;
+const res = await fetch(url, {
+method: "GET",
+headers: {
+"X-API-KEY": apiKey
+}
+});
+
+const data = await res.json();
+if (!data || !data[0] || !data[0].popular_times) {
+div.querySelector(".status").innerText = textMap.fallback;
+continue;
+}
+
+const today = new Date().getDay(); // Sunday = 0
+const hour = new Date().getHours();
+const pt = data[0].popular_times[today];
+let value = pt?.data?.[hour] ?? null;
+
+if (value == null) {
+div.querySelector(".status").innerText = textMap.fallback;
+continue;
+}
+
+let status = "normal";
+if (value < 20) status = "quiet";
+else if (value >= 60) status = "crowded";
+
+div.querySelector(".status").innerText = textMap[status];
+} catch (e) {
+console.error(e);
+div.querySelector(".status").innerText = "資料載入失敗。";
+}
+}
+}
+</script>
+
+</body>
+</html>
