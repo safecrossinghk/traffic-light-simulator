@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>即時人流（popular_times）</title>
+<style>
+body { font-family: sans-serif; margin: 1em; background: #f9f9f9; }
+.location { padding: 1em; margin-bottom: 1em; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
+h2 { font-size: 1.2em; margin: 0 0 0.5em 0; }
+.value { font-weight: bold; color: #006400; }
+</style>
+</head>
+<body>
+<h1>📍 即時人流（popular_times）查詢</h1>
+<div id="results"></div>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg'; // Outscraper API Key
+const places = [
+{ name: '荃灣西站', query: 'Tsuen Wan West Station, Hong Kong' },
+{ name: '旺角朗豪坊', query: 'Langham Place Mong Kok, Hong Kong' },
+{ name: '深水埗地鐵站', query: 'Sham Shui Po MTR Station, Hong Kong' },
+{ name: '尖沙咀海港城', query: 'Harbour City Tsim Sha Tsui, Hong Kong' },
+{ name: '中環交易廣場', query: 'Exchange Square Central, Hong Kong' }
+];
+
+async function fetchPopularTimes() {
+const resultsDiv = document.getElementById('results');
+resultsDiv.innerHTML = ''; // 清空
+
+for (const place of places) {
+const url = `https://api.app.outscraper.com/maps/places/data?query=${encodeURIComponent(place.query)}&limit=1&language=en&fields=popular_times`;
+try {
+const response = await fetch(url, {
+headers: {
+'X-API-KEY': apiKey,
+'accept': 'application/json'
+}
+});
+const data = await response.json();
+const item = data[0];
+
+let now = new Date();
+let weekday = now.getDay(); // Sunday = 0
+let hour = now.getHours();
+
+let popularNow = item?.popular_times?.[weekday]?.data?.[hour] ?? null;
+
+const div = document.createElement('div');
+div.className = 'location';
+div.innerHTML = `
+<h2>${place.name}</h2>
+<p>目前時段人流： <span class="value">${popularNow !== null ? popularNow + '%' : '無資料'}</span></p>
+`;
+resultsDiv.appendChild(div);
+
+if (popularNow !== null) {
+speak(`${place.name}，現時人流大約 ${popularNow} 百分比。`, 'zh-HK');
+speak(`${place.query}, current crowd level is ${popularNow} percent.`, 'en-US');
+} else {
+speak(`${place.name} 暫時未有人流資料。`, 'zh-HK');
+}
+
+} catch (error) {
+console.error(error);
+}
+}
+}
+
+function speak(text, lang = 'zh-HK') {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang;
+utter.rate = 1;
+window.speechSynthesis.speak(utter);
+}
+
+fetchPopularTimes();
+setInterval(fetchPopularTimes, 5 * 60 * 1000); // 每 5 分鐘更新
+</script>
+</body>
+</html>
