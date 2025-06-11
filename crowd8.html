@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>即時人流（popular_times）</title>
+<style>
+body { font-family: sans-serif; margin: 1em; background: #f9f9f9; }
+.location { padding: 1em; margin-bottom: 1em; background: #fff; border: 1px solid #ccc; border-radius: 8px; }
+h2 { font-size: 1.2em; margin: 0 0 0.5em 0; }
+.value { font-weight: bold; color: #006400; }
+</style>
+</head>
+<body>
+<h1>📍 即時人流（popular_times）查詢</h1>
+<div id="results">載入中...</div>
+
+<script>
+const apiKey = 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg';
+const places = [
+{ name: '荃灣西站', query: 'Tsuen Wan West Station, Hong Kong' },
+{ name: '旺角朗豪坊', query: 'Langham Place Mong Kok, Hong Kong' },
+{ name: '深水埗地鐵站', query: 'Sham Shui Po MTR Station, Hong Kong' },
+{ name: '尖沙咀海港城', query: 'Harbour City Tsim Sha Tsui, Hong Kong' },
+{ name: '中環交易廣場', query: 'Exchange Square Central, Hong Kong' }
+];
+
+async function fetchPopularTimes() {
+const resultsDiv = document.getElementById('results');
+resultsDiv.innerHTML = ''; // 清空內容
+
+for (const place of places) {
+const url = `https://api.app.outscraper.com/maps/places/data?query=${encodeURIComponent(place.query)}&limit=1&language=en&fields=popular_times`;
+
+const container = document.createElement('div');
+container.className = 'location';
+container.innerHTML = `<h2>${place.name}</h2><p>載入中...</p>`;
+resultsDiv.appendChild(container);
+
+try {
+const response = await fetch(url, {
+headers: {
+'X-API-KEY': apiKey,
+'accept': 'application/json'
+}
+});
+
+const json = await response.json();
+const item = json[0];
+
+const now = new Date();
+const weekday = now.getDay(); // 0 = Sunday
+const hour = now.getHours();
+
+let popular = null;
+if (item && item.popular_times && item.popular_times[weekday]) {
+popular = item.popular_times[weekday].data?.[hour] ?? null;
+}
+
+if (popular !== null) {
+container.innerHTML = `
+<h2>${place.name}</h2>
+<p>目前人流：<span class="value">${popular}%</span></p>
+`;
+speak(`${place.name}，現時人流大約 ${popular} 百分比。`, 'zh-HK');
+speak(`${place.query}, current crowd level is ${popular} percent.`, 'en-US');
+} else {
+container.innerHTML = `
+<h2>${place.name}</h2>
+<p><span class="value">無資料</span></p>
+`;
+speak(`${place.name} 暫時未有人流資料。`, 'zh-HK');
+}
+
+} catch (err) {
+console.error('Fetch error for', place.name, err);
+container.innerHTML = `
+<h2>${place.name}</h2>
+<p><span class="value">查詢失敗</span></p>
+`;
+}
+}
+}
+
+function speak(text, lang = 'zh-HK') {
+if (!window.speechSynthesis) return;
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang;
+utter.rate = 1;
+window.speechSynthesis.speak(utter);
+}
+
+fetchPopularTimes();
+setInterval(fetchPopularTimes, 5 * 60 * 1000);
+</script>
+</body>
+</html>
