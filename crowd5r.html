@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; background-color: #f8f9fa; }
+h1 { font-size: 22px; }
+.location { border: 1px solid #ccc; border-radius: 8px; padding: 10px; margin-bottom: 10px; background: white; }
+.level { font-weight: bold; }
+@media (max-width: 600px) {
+h1 { font-size: 18px; }
+.location { font-size: 14px; }
+}
+</style>
+</head>
+<body>
+<h1>即時人流查詢（固定地點）</h1>
+<div id="results"></div>
+
+<script>
+const locations = [
+{ name: "旺角朗豪坊", en: "Langham Place Mong Kok" },
+{ name: "深水埗地鐵站", en: "Sham Shui Po MTR Station" },
+{ name: "尖沙咀海港城", en: "Harbour City Tsim Sha Tsui" },
+{ name: "中環交易廣場", en: "Exchange Square Central" },
+{ name: "荃灣西站", en: "Tsuen Wan West Station" }
+];
+
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+async function fetchCrowdData(place) {
+const url = "https://api.app.outscraper.com/maps/search-v2";
+const body = {
+query: place.en,
+limit: 1,
+region: "HK",
+domain: "com.hk",
+language: "zh-HK",
+popular_times: true
+};
+
+try {
+const response = await fetch(url, {
+method: "POST",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+},
+body: JSON.stringify(body)
+});
+
+const data = await response.json();
+const result = data.data && data.data[0];
+const name = place.name;
+const en = place.en;
+
+if (result && result.popular_times) {
+const day = new Date().getDay();
+const hour = new Date().getHours();
+const crowd = result.popular_times[day]?.data[hour];
+const level = crowd !== undefined ? `${crowd}％` : "無數據";
+
+document.getElementById("results").innerHTML += `
+<div class="location">
+<div><strong>${name}</strong> (${en})</div>
+<div class="level">目前人流：${level}</div>
+</div>
+`;
+
+speak(`${name}：目前人流約 ${crowd} 百分比。`, "zh-HK");
+} else {
+document.getElementById("results").innerHTML += `
+<div class="location">
+<div><strong>${name}</strong> (${en})</div>
+<div class="level">找不到即時人流資料</div>
+</div>
+`;
+}
+
+} catch (error) {
+console.error("錯誤：", error);
+document.getElementById("results").innerHTML += `
+<div class="location">
+<div><strong>${place.name}</strong> (${place.en})</div>
+<div class="level">查詢失敗</div>
+</div>
+`;
+}
+}
+
+function speak(text, lang) {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang;
+utter.rate = 1;
+speechSynthesis.speak(utter);
+}
+
+locations.forEach(loc => fetchCrowdData(loc));
+</script>
+</body>
+</html>
