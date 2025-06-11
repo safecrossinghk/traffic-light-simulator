@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>附近即時人流查詢</title>
+<style>
+body { font-family: sans-serif; padding: 1em; background: #f2f2f2; }
+h2 { font-size: 1.5em; margin-bottom: 1em; }
+.location { background: #fff; padding: 1em; border-radius: 8px; margin-bottom: 1em; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+.crowd-level { font-weight: bold; color: #0066cc; }
+@media (max-width: 600px) {
+h2 { font-size: 1.2em; }
+}
+</style>
+</head>
+<body>
+<h2>📍 即時附近人流查詢（每 5 分鐘自動更新）</h2>
+<div id="status">🚩 正在取得 GPS 定位…</div>
+<div id="locations"></div>
+
+<script>
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+function speak(text, lang) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = lang;
+utterance.rate = 1;
+speechSynthesis.speak(utterance);
+}
+
+async function fetchNearbyPlaces(lat, lng) {
+document.getElementById('status').textContent = '📡 正在查詢附近人流…';
+
+try {
+const res = await fetch("https://api.app.outscraper.com/places/data", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"X-API-KEY": API_KEY
+},
+body: JSON.stringify({
+query: "popular places near me",
+lat: lat,
+lng: lng,
+limit: 5,
+radius: 2000
+})
+});
+
+const data = await res.json();
+const today = new Date().getDay();
+const hour = new Date().getHours();
+
+const places = data.map(item => {
+const popular = item.popular_times || {};
+const level = (popular[today] && popular[today][hour]) || "未知";
+return { name: item.name, address: item.address, level };
+});
+
+renderPlaces(places);
+speakResults(places);
+} catch (err) {
+document.getElementById('status').textContent = '❌ 無法取得資料';
+console.error(err);
+}
+}
+
+function renderPlaces(places) {
+document.getElementById('status').textContent = '';
+document.getElementById('locations').innerHTML = places.map(p => `
+<div class="location">
+<div><strong>${p.name}</strong></div>
+<div>📍 ${p.address}</div>
+<div>👥 即時人流：<span class="crowd-level">${p.level}</span></div>
+</div>
+`).join('');
+}
+
+function speakResults(data) {
+const now = new Date();
+const hh = now.getHours().toString().padStart(2, '0');
+const mm = now.getMinutes().toString().padStart(2, '0');
+
+const zh = `現在時間 ${hh}點${mm}分。` +
+data.map(d => `${d.name}人流是${d.level}。`).join('');
+const en = `Current time ${hh}:${mm}. ` +
+data.map(d => `Crowd at ${d.name} is ${d.level}.`).join(' ');
+
+speak(zh, 'zh-HK');
+setTimeout(() => speak(en, 'en-US'), 5000);
+}
+
+function init() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(pos => {
+const lat = pos.coords.latitude;
+const lng = pos.coords.longitude;
+fetchNearbyPlaces(lat, lng);
+setInterval(() => fetchNearbyPlaces(lat, lng), 5 * 60 * 1000);
+}, err => {
+document.getElementById('status').textContent = '❌ 無法取得定位資料';
+});
+} else {
+document.getElementById('status').textContent = '❌ 瀏覽器不支援 GPS 定位';
+}
+}
+
+init();
+</script>
+</body>
+</html>
