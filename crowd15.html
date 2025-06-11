@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（5個熱門地點）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; }
+.low { color: green; }
+.medium { color: orange; }
+.high { color: red; }
+.unknown { color: gray; }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢（5個熱門地點）</h2>
+<div id="results"></div>
+
+<script>
+const locations = [
+"Tsuen Wan West Station, Tsuen Wan, Hong Kong",
+"Langham Place Shopping Mall, Mong Kok, Hong Kong",
+"Sham Shui Po MTR Station, Sham Shui Po, Hong Kong",
+"Harbour City, Tsim Sha Tsui, Hong Kong",
+"Exchange Square Bus Terminus, Central, Hong Kong"
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+function getCrowdLevelClass(v) {
+if (v === undefined) return "unknown";
+if (v <= 30) return "low";
+if (v <= 60) return "medium";
+return "high";
+}
+function getCrowdText(v, lang) {
+if (v === undefined) return lang==="zh-HK"?"❓ 無資料":"❓ Not available";
+if (lang==="zh-HK") {
+if (v<=30) return `😌 疏落（${v}%）`;
+if (v<=60) return `🙂 正常（${v}%）`;
+return `😣 擁擠（${v}%）`;
+} else {
+if (v<=30) return `😌 Relaxed (${v}%)`;
+if (v<=60) return `🙂 Normal (${v}%)`;
+return `😣 Crowded (${v}%)`;
+}
+}
+function speak(text, lang) {
+let u=new SpeechSynthesisUtterance(text);
+u.lang=lang;
+window.speechSynthesis.speak(u);
+}
+async function fetchCrowd(place) {
+const url = `https://api.app.outscraper.com/maps/search?query=${encodeURIComponent(place)}&fields=popular_times&limit=1&language=en&region=hk`;
+const res = await fetch(url, {
+headers: {"X-API-KEY": API_KEY}
+});
+const j = await res.json();
+console.log("🔍", place, j);
+return j?.[0]?.popular_times || null;
+}
+async function displayAll() {
+const r=document.getElementById("results");
+for (let place of locations) {
+let el=document.createElement("div");
+el.className="location";
+el.innerHTML=`<h3>${place}</h3><div class="status">🔄 載入中…</div>`;
+r.appendChild(el);
+try {
+let pt = await fetchCrowd(place);
+let now=new Date(), wd=["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()], hr=now.getHours();
+let v = pt?.[wd]?.[hr];
+let lang = navigator.language.startsWith("zh")?"zh-HK":"en-US";
+let cls = getCrowdLevelClass(v);
+let txt = getCrowdText(v,lang);
+let sd = el.querySelector(".status");
+sd.innerText = txt;
+sd.className = `status ${cls}`;
+let spoken = lang==="zh-HK"
+? `${place} 現時人流係 ${v!==undefined?v+" 百分比":"無資料"}`
+: `Current crowd level at ${place} is ${v!==undefined?v+" percent":"not available"}`;
+speak(spoken, lang);
+} catch(e) {
+let sd = el.querySelector(".status");
+sd.innerText="⚠️ 查詢失敗："+e.message;
+sd.className="status unknown";
+}
+}
+}
+displayAll();
+</script>
+
+</body>
+</html>
