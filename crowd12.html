@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（五地點）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢（5個熱門地點）</h2>
+<div id="results"></div>
+
+<script>
+const locations = [
+"Tsuen Wan West",
+"Langham Place, Mong Kok",
+"Sham Shui Po MTR Station",
+"Harbour City, Tsim Sha Tsui",
+"Exchange Square, Central"
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+async function fetchCrowdData(place) {
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh&region=hk`;
+const response = await fetch(url, {
+method: "GET",
+headers: {
+"X-API-KEY": API_KEY
+}
+});
+const data = await response.json();
+const id = data.id;
+if (!id) throw new Error("未能取得查詢 ID");
+
+// 等待 3 秒後再查最終結果
+await new Promise(res => setTimeout(res, 3000));
+const finalUrl = `https://api.outscraper.cloud/requests/${id}`;
+const finalRes = await fetch(finalUrl);
+const finalData = await finalRes.json();
+return finalData.data?.[0]?.[0]?.popular_times || null;
+}
+
+function speak(text, lang) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = lang;
+window.speechSynthesis.speak(utterance);
+}
+
+async function displayAll() {
+const resultDiv = document.getElementById("results");
+for (const place of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${place}</h3><div class="status">🔄 載入中…</div>`;
+resultDiv.appendChild(el);
+
+try {
+const data = await fetchCrowdData(place);
+if (data) {
+const today = new Date().getDay();
+const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][today];
+const hour = new Date().getHours();
+const todayData = data[weekday]?.[hour];
+
+const status = todayData !== undefined
+? `現時人流：${todayData}%`
+: "🔍 找不到即時人流資料";
+
+el.querySelector(".status").innerText = status;
+
+// 語音播報
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spokenText = lang === "zh-HK"
+? `${place} 現時人流係 ${todayData || "無資料"} 百分比`
+: `Current crowd level at ${place} is ${todayData || "not available"} percent.`;
+speak(spokenText, lang);
+} else {
+el.querySelector(".status").innerText = "❌ 未找到人流資料";
+}
+} catch (e) {
+el.querySelector(".status").innerText = "⚠️ 查詢失敗：" + e.message;
+}
+}
+}
+
+displayAll();
+</script>
+
+</body>
+</html>
