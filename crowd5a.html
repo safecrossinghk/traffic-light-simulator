@@ -1,0 +1,49 @@
+<!-- crowd5-mock.html -->
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>模擬即時人流查詢</title>
+<style>
+body { font-family: sans-serif; padding: 1em; }
+.location { margin-bottom: 1.5em; }
+</style>
+</head>
+<body>
+<h1>模擬即時人流資訊</h1>
+
+<div class="location">
+<strong>旺角朗豪坊：</strong>人流：<span id="mk">擁擠</span>
+</div>
+<div class="location">
+<strong>尖沙咀海港城：</strong>人流：<span id="tst">中等</span>
+</div>
+<div class="location">
+<strong>深水埗地鐵站：</strong>人流：<span id="ssp">疏落</span>
+</div>
+<div class="location">
+<strong>荃灣西站：</strong>人流：<span id="tsw">擁擠</span>
+</div>
+<div class="location">
+<strong>中環交易廣場：</strong>人流：<span id="central">中等</span>
+</div>
+
+<script>
+// 模擬 JSON 可根據需要更新此物件
+const mockData = {
+"旺角朗豪坊": "擁擠",
+"尖沙咀海港城": "中等",
+"深水埗地鐵站": "疏落",
+"荃灣西站": "擁擠",
+"中環交易廣場": "中等"
+};
+
+document.getElementById("mk").textContent = mockData["旺角朗豪坊"];
+document.getElementById("tst").textContent = mockData["尖沙咀海港城"];
+document.getElementById("ssp").textContent = mockData["深水埗地鐵站"];
+document.getElementById("tsw").textContent = mockData["荃灣西站"];
+document.getElementById("central").textContent = mockData["中環交易廣場"];
+</script>
+</body>
+</html>
