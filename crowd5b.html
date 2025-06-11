@@ -1,0 +1,54 @@
+<!-- crowd5-popular.html -->
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢 popular_times</title>
+<style>
+body { font-family: sans-serif; padding: 1em; }
+.location { margin-bottom: 1.5em; }
+</style>
+</head>
+<body>
+<h1>即時人流（popular_times）</h1>
+
+<div class="location"><strong>旺角朗豪坊：</strong><span id="mk">讀取中...</span></div>
+<div class="location"><strong>尖沙咀海港城：</strong><span id="tst">讀取中...</span></div>
+<div class="location"><strong>深水埗地鐵站：</strong><span id="ssp">讀取中...</span></div>
+<div class="location"><strong>荃灣西站：</strong><span id="tsw">讀取中...</span></div>
+<div class="location"><strong>中環交易廣場：</strong><span id="central">讀取中...</span></div>
+
+<script>
+const locations = [
+{ id: "mk", query: "Langham Place Mong Kok" },
+{ id: "tst", query: "Harbour City Tsim Sha Tsui" },
+{ id: "ssp", query: "Sham Shui Po MTR Station" },
+{ id: "tsw", query: "Tsuen Wan West Station" },
+{ id: "central", query: "Exchange Square Central" }
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+locations.forEach(loc => {
+fetch(`https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(loc.query)}&limit=1&async=false`, {
+method: "GET",
+headers: {
+"X-API-KEY": API_KEY
+}
+})
+.then(response => response.json())
+.then(data => {
+const popular = data[0]?.popular_times?.find(pt => pt.name === new Date().toLocaleString('en-US', { weekday: 'long' }));
+const currentHour = new Date().getHours();
+const crowd = popular?.data?.[currentHour] ?? "無資料";
+document.getElementById(loc.id).textContent = `目前人流指數：${crowd}`;
+})
+.catch(err => {
+console.error(err);
+document.getElementById(loc.id).textContent = "讀取失敗";
+});
+});
+</script>
+</body>
+</html>
