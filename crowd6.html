@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢</title>
+<style>
+body { font-family: sans-serif; padding: 10px; background: #f0f0f0; }
+h2 { color: #333; }
+.location { background: #fff; margin: 10px 0; padding: 10px; border-radius: 8px; }
+.crowd-level { font-weight: bold; color: #007BFF; }
+@media (max-width: 600px) {
+h2 { font-size: 1.2em; }
+.location { font-size: 0.95em; }
+}
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢（每5分鐘更新）</h2>
+<div id="locations"></div>
+
+<script>
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const places = [
+{ name: "荃灣西站", query: "Tsuen Wan West Station, Hong Kong" },
+{ name: "旺角朗豪坊", query: "Langham Place, Mong Kok, Hong Kong" },
+{ name: "深水埗地鐵站", query: "Sham Shui Po MTR Station, Hong Kong" },
+{ name: "尖沙咀海港城", query: "Harbour City, Tsim Sha Tsui, Hong Kong" },
+{ name: "中環交易廣場", query: "Exchange Square, Central, Hong Kong" }
+];
+
+async function fetchCrowdData() {
+document.getElementById('locations').innerHTML = '🔄 正在載入...';
+const results = await Promise.all(places.map(async (place) => {
+try {
+const res = await fetch("https://api.app.outscraper.com/places/data", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"X-API-KEY": API_KEY
+},
+body: JSON.stringify({ query: place.query })
+});
+const data = await res.json();
+const info = data[0] || {};
+const popular = info.popular_times || {};
+const today = new Date().getDay();
+const hour = new Date().getHours();
+const crowd = (popular[today]?.[hour]) || "未知";
+
+return { name: place.name, level: crowd };
+} catch (e) {
+return { name: place.name, level: "資料錯誤" };
+}
+}));
+
+render(results);
+speakResults(results);
+}
+
+function render(data) {
+document.getElementById('locations').innerHTML = data.map(d => `
+<div class="location">
+<div>📍 <strong>${d.name}</strong></div>
+<div>👥 即時人流：<span class="crowd-level">${d.level}</span></div>
+</div>
+`).join('');
+}
+
+function speakResults(data) {
+const now = new Date();
+const hour = now.getHours().toString().padStart(2, '0');
+const min = now.getMinutes().toString().padStart(2, '0');
+
+const zhText = `現在時間：${hour}點${min}分。` +
+data.map(d => `${d.name}人流是${d.level}。`).join('');
+
+const enText = `Current time: ${hour}:${min}. ` +
+data.map(d => `Crowd level at ${d.name} is ${d.level}.`).join(' ');
+
+speak(zhText, 'zh-HK');
+setTimeout(() => speak(enText, 'en-US'), 5000);
+}
+
+function speak(text, lang) {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang;
+utter.rate = 1;
+speechSynthesis.speak(utter);
+}
+
+fetchCrowdData();
+setInterval(fetchCrowdData, 5 * 60 * 1000); // 每 5 分鐘更新
+</script>
+</body>
+</html>
