@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（修正版）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢 </h2>
+<div id="results"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"; // Outscraper API 金鑰
+const googleApiKey = "AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY"; // Google API 金鑰
+
+function normalizePopularTimes(arr) {
+if (!Array.isArray(arr)) return null;
+const map = {};
+arr.forEach(dayObj => {
+const name = dayObj.day_text;
+map[name] = {};
+(dayObj.popular_times || []).forEach(item => {
+map[name][item.hour] = item.percentage;
+});
+});
+return map;
+}
+
+function speak(text, lang) {
+const u = new SpeechSynthesisUtterance(text);
+u.lang = lang;
+window.speechSynthesis.speak(u);
+}
+
+async function fetchPopularTimes(place) {
+try {
+const res1 = await fetch(`https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh&region=hk`, {
+headers: { "X-API-KEY": API_KEY }
+});
+const j1 = await res1.json();
+const id = j1.id;
+if (!id) throw new Error("查詢 ID 失敗");
+
+await new Promise(r => setTimeout(r, 3000));
+
+const res2 = await fetch(`https://api.outscraper.cloud/requests/${id}`);
+const j2 = await res2.json();
+const raw = j2.data?.[0]?.[0]?.popular_times;
+return normalizePopularTimes(raw);
+} catch (err) {
+console.warn(`❌ API 查詢錯誤：${place}`, err);
+return null;
+}
+}
+
+async function displayAll() {
+const now = new Date();
+const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+const hour = now.getHours();
+const resultDiv = document.getElementById("results");
+
+console.log("🔍 開始查詢即時人流...");
+
+for (const place of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${place}</h3><div class="status">⏳ 載入中...</div>`;
+resultDiv.appendChild(el);
+
+const data = await fetchPopularTimes(place);
+if (data) {
+const crowd = data[weekday]?.[hour];
+const status = crowd !== undefined
+? `現時人流：${crowd}%`
+: "🔍 找不到即時人流資料";
+el.querySelector(".status").innerText = status;
+
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spoken = lang === "zh-HK"
+? `${place} 現時人流係 ${crowd !== undefined ? crowd + " 百分比" : "無資料"}`
+: `Current crowd level at ${place} is ${crowd !== undefined ? crowd + " percent" : "not available"}`;
+speak(spoken, lang);
+
+console.log(`${place} → ✅ ${status}`);
+} else {
+el.querySelector(".status").innerText = "⚠️ 查詢失敗或無 popular_times 資料";
+console.warn(`${place} → ❌ 查詢失敗`);
+}
+}
+}
+
+displayAll();
+</script>
+</body>
+</html>
