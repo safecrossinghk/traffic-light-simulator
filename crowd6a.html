@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（五地點）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢（5個熱門地點）</h2>
+<div id="results"></div>
+
+<script>
+const locations = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+function speak(text, lang) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = lang;
+window.speechSynthesis.speak(utterance);
+}
+
+async function fetchPopularTimes(place) {
+const searchUrl = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh&region=hk`;
+const response = await fetch(searchUrl, {
+method: "GET",
+headers: {
+"X-API-KEY": API_KEY
+}
+});
+
+const data = await response.json();
+const id = data.id;
+if (!id) throw new Error("未能取得查詢 ID");
+
+// 等 3 秒後查完整結果
+await new Promise(res => setTimeout(res, 3000));
+
+const finalUrl = `https://api.outscraper.cloud/requests/${id}`;
+const finalRes = await fetch(finalUrl);
+const finalData = await finalRes.json();
+
+return finalData.data?.[0]?.[0]?.popular_times || null;
+}
+
+async function displayAll() {
+console.log("🔍 開始查詢即時人流...");
+const resultDiv = document.getElementById("results");
+
+for (const place of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${place}</h3><div class="status">⏳ 載入中...</div>`;
+resultDiv.appendChild(el);
+
+try {
+const data = await fetchPopularTimes(place);
+
+if (data) {
+const todayIndex = new Date().getDay();
+const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][todayIndex];
+const hour = new Date().getHours();
+const crowd = data[weekday]?.[hour];
+
+const statusText = (crowd !== undefined)
+? `現時人流：${crowd}%`
+: "🔍 找不到即時人流資料";
+
+el.querySelector(".status").innerText = statusText;
+
+// 語音提示
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spokenText = lang === "zh-HK"
+? `${place} 現時人流係 ${crowd || "無資料"} 百分比`
+: `Current crowd level at ${place} is ${crowd || "not available"} percent.`;
+speak(spokenText, lang);
+
+console.log(`${place} → ✅ ${statusText}`);
+} else {
+el.querySelector(".status").innerText = "❌ 沒有 popular_times 資料";
+console.log(`${place} → ⚠️ 無 popular_times`);
+}
+} catch (err) {
+el.querySelector(".status").innerText = `⚠️ 查詢失敗：${err.message}`;
+console.warn(`${place} → 查詢失敗`, err);
+}
+}
+}
+
+displayAll();
+</script>
+</body>
+</html>
