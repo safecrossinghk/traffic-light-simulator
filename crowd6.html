@@ -3,94 +3,97 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>即時人流查詢</title>
+<title>即時人流查詢（五地點）</title>
 <style>
-body { font-family: sans-serif; padding: 10px; background: #f0f0f0; }
-h2 { color: #333; }
-.location { background: #fff; margin: 10px 0; padding: 10px; border-radius: 8px; }
-.crowd-level { font-weight: bold; color: #007BFF; }
-@media (max-width: 600px) {
-h2 { font-size: 1.2em; }
-.location { font-size: 0.95em; }
-}
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; }
 </style>
 </head>
 <body>
-<h2>📍 即時人流查詢（每5分鐘更新）</h2>
-<div id="locations"></div>
+<h2>📍 即時人流查詢（5個熱門地點）</h2>
+<div id="results"></div>
 
 <script>
-const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
-const places = [
-{ name: "荃灣西站", query: "Tsuen Wan West Station, Hong Kong" },
-{ name: "旺角朗豪坊", query: "Langham Place, Mong Kok, Hong Kong" },
-{ name: "深水埗地鐵站", query: "Sham Shui Po MTR Station, Hong Kong" },
-{ name: "尖沙咀海港城", query: "Harbour City, Tsim Sha Tsui, Hong Kong" },
-{ name: "中環交易廣場", query: "Exchange Square, Central, Hong Kong" }
+const locations = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
 ];
 
-async function fetchCrowdData() {
-document.getElementById('locations').innerHTML = '🔄 正在載入...';
-const results = await Promise.all(places.map(async (place) => {
-try {
-const res = await fetch("https://api.app.outscraper.com/places/data", {
-method: "POST",
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+async function fetchCrowd(place) {
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh&region=hk`;
+const res = await fetch(url, {
+method: "GET",
 headers: {
-"Content-Type": "application/json",
 "X-API-KEY": API_KEY
-},
-body: JSON.stringify({ query: place.query })
+}
 });
 const data = await res.json();
-const info = data[0] || {};
-const popular = info.popular_times || {};
-const today = new Date().getDay();
-const hour = new Date().getHours();
-const crowd = (popular[today]?.[hour]) || "未知";
-
-return { name: place.name, level: crowd };
-} catch (e) {
-return { name: place.name, level: "資料錯誤" };
-}
-}));
-
-render(results);
-speakResults(results);
-}
-
-function render(data) {
-document.getElementById('locations').innerHTML = data.map(d => `
-<div class="location">
-<div>📍 <strong>${d.name}</strong></div>
-<div>👥 即時人流：<span class="crowd-level">${d.level}</span></div>
-</div>
-`).join('');
-}
-
-function speakResults(data) {
-const now = new Date();
-const hour = now.getHours().toString().padStart(2, '0');
-const min = now.getMinutes().toString().padStart(2, '0');
-
-const zhText = `現在時間：${hour}點${min}分。` +
-data.map(d => `${d.name}人流是${d.level}。`).join('');
-
-const enText = `Current time: ${hour}:${min}. ` +
-data.map(d => `Crowd level at ${d.name} is ${d.level}.`).join(' ');
-
-speak(zhText, 'zh-HK');
-setTimeout(() => speak(enText, 'en-US'), 5000);
+const result = data.data?.[0]?.[0];
+if (!result || !result.popular_times) throw new Error("未能取得 popular_times 資料");
+return result.popular_times;
 }
 
 function speak(text, lang) {
-const utter = new SpeechSynthesisUtterance(text);
-utter.lang = lang;
-utter.rate = 1;
-speechSynthesis.speak(utter);
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = lang;
+window.speechSynthesis.speak(utterance);
 }
 
-fetchCrowdData();
-setInterval(fetchCrowdData, 5 * 60 * 1000); // 每 5 分鐘更新
+async function displayAll() {
+const resultDiv = document.getElementById("results");
+for (const place of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${place}</h3><div class="status">🔄 載入中…</div>`;
+resultDiv.appendChild(el);
+
+try {
+const data = await fetchCrowd(place);
+const today = new Date().getDay();
+const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][today];
+const hour = new Date().getHours();
+const todayData = data[weekday]?.[hour];
+
+const status = todayData !== undefined
+? `現時人流：${todayData}%`
+: "🔍 找不到即時人流資料";
+
+el.querySelector(".status").innerText = status;
+
+// 語音播報
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spokenText = lang === "zh-HK"
+? `${place} 現時人流係 ${todayData || "無資料"} 百分比`
+: `Current crowd level at ${place} is ${todayData || "not available"} percent.`;
+speak(spokenText, lang);
+} catch (e) {
+el.querySelector(".status").innerText = "⚠️ 查詢失敗：" + e.message;
+}
+}
+}
+
+// 額外功能：檢查哪些地點有 popular_times 資料
+async function checkAvailability() {
+console.log("🔍 開始檢查各地點有無即時人流資料...");
+for (let place of locations) {
+try {
+const pt = await fetchCrowd(place);
+const hasData = Array.isArray(pt) && pt.length > 0;
+console.log(`${place} → popular_times ${hasData ? "✅ 有資料" : "❌ 無資料"}`);
+} catch (e) {
+console.log(`${place} → ⚠️ 查詢失敗：${e.message}`);
+}
+}
+}
+
+// 執行顯示與檢查
+displayAll().then(() => checkAvailability());
 </script>
 </body>
 </html>
