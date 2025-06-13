@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（Google Maps ID）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; padding: 5px; border-radius: 4px; display: inline-block; }
+.low { background-color: #d4edda; color: #155724; }
+.medium { background-color: #fff3cd; color: #856404; }
+.high { background-color: #f8d7da; color: #721c24; }
+.error { color: #dc3545; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢（5個地點 - Google Maps ID）</h2>
+<div id="results"></div>
+
+<script>
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const LOCATIONS = [
+{ name: "荃灣西站", placeId: "ChIJ_QlQqWcABDQRmVq40G0YtP8" },
+{ name: "旺角朗豪坊", placeId: "ChIJC_a1xpUBAzQRfnglRAVPe1g" },
+{ name: "深水埗地鐵站", placeId: "ChIJv02y6fsABDQR3eEpg4kBTfE" },
+{ name: "尖沙咀海港城", placeId: "ChIJa-LbEXgABDQRAjYroS9WAZo" },
+{ name: "中環交易廣場", placeId: "ChIJWeX_XpcABDQRg9-pVHgqs_U" }
+];
+
+const resultDiv = document.getElementById("results");
+
+async function fetchPopularTimes(placeId, retries = 2) {
+const searchUrl = `https://api.app.outscraper.com/maps/search-v2?query=${placeId}&place_id_only=true&language=zh&region=hk`;
+try {
+const response = await fetch(searchUrl, {
+headers: { "X-API-KEY": API_KEY }
+});
+const data = await response.json();
+const id = data.id;
+if (!id) throw new Error("未能取得查詢 ID");
+
+// 等待 5 秒取得結果
+await new Promise(r => setTimeout(r, 5000));
+
+const resultUrl = `https://api.outscraper.cloud/requests/${id}`;
+const finalRes = await fetch(resultUrl);
+const finalData = await finalRes.json();
+const placeData = finalData.data?.[0]?.[0];
+
+return placeData?.popular_times || null;
+} catch (err) {
+if (retries > 0) {
+console.warn(`🔁 Retry fetch for ${placeId}`);
+return fetchPopularTimes(placeId, retries - 1);
+}
+throw err;
+}
+}
+
+function getTodayHourData(popularTimes) {
+const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+const today = days[new Date().getDay()];
+const hour = new Date().getHours();
+return popularTimes?.[today]?.[hour];
+}
+
+function getColorClass(value) {
+if (value <= 30) return "low";
+if (value <= 70) return "medium";
+return "high";
+}
+
+async function displayAll() {
+console.log("🔍 開始查詢即時人流...");
+resultDiv.innerHTML = "";
+
+for (const loc of LOCATIONS) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${loc.name}</h3><div class="status">🔄 載入中…</div>`;
+resultDiv.appendChild(el);
+
+try {
+const popData = await fetchPopularTimes(loc.placeId);
+const value = getTodayHourData(popData);
+
+if (value !== undefined) {
+const colorClass = getColorClass(value);
+el.querySelector(".status").innerHTML = `現時人流：<span class="${colorClass}">${value}%</span>`;
+} else {
+el.querySelector(".status").innerHTML = `<span class="error">⚠️ 此地點暫無人流資料</span>`;
+}
+} catch (err) {
+el.querySelector(".status").innerHTML = `<span class="error">❌ 查詢失敗</span>`;
+console.error(`${loc.name} → 查詢失敗：`, err);
+}
+}
+}
+
+displayAll();
+setInterval(displayAll, 5 * 60 * 1000); // 每 5 分鐘自動更新
+</script>
+</body>
+</html>
