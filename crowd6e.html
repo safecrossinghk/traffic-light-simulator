@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>即時人流查詢（地點名稱版）</title>
+<style>
+body { font-family: sans-serif; margin: 20px; background: #f9f9f9; }
+h1 { font-size: 1.5em; }
+.location { padding: 10px; margin: 10px 0; background: #fff; border-radius: 8px; box-shadow: 0 0 5px #ccc; }
+.green { color: green; font-weight: bold; }
+.yellow { color: orange; font-weight: bold; }
+.red { color: red; font-weight: bold; }
+</style>
+</head>
+<body>
+<h1>📍 即時人流查詢</h1>
+<div id="results"></div>
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const locations = ["荃灣西站", "旺角朗豪坊", "深水埗地鐵站", "尖沙咀海港城", "中環交易廣場"];
+const resultsDiv = document.getElementById("results");
+
+async function fetchData(name) {
+const body = {
+query: name,
+language: "zh-HK",
+fields: ["popular_times"]
+};
+for (let i = 0; i < 3; i++) {
+try {
+const res = await fetch("https://api.app.outscraper.com/maps/search-v2", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"X-API-KEY": apiKey
+},
+body: JSON.stringify(body)
+});
+const data = await res.json();
+if (data[0]?.popular_times?.length > 0) {
+return data[0];
+} else {
+await new Promise(r => setTimeout(r, 5000)); // 5 秒重試
+}
+} catch (e) {
+console.error(e);
+await new Promise(r => setTimeout(r, 5000));
+}
+}
+return null;
+}
+
+function getCurrentCrowd(popular_times) {
+const now = new Date();
+const day = now.getDay(); // 0 = Sunday
+const hour = now.getHours();
+const todayTimes = popular_times[day]?.data || [];
+return todayTimes[hour] || null;
+}
+
+function getColorClass(value) {
+if (value >= 70) return "red";
+if (value >= 40) return "yellow";
+return "green";
+}
+
+async function updateCrowd() {
+resultsDiv.innerHTML = "";
+for (const name of locations) {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<strong>${name}</strong><br>🔄 查詢中...`;
+resultsDiv.appendChild(div);
+
+const data = await fetchData(name);
+if (!data) {
+div.innerHTML = `<strong>${name}</strong><br>⚠️ 此地點暫無人流資料`;
+continue;
+}
+
+const crowd = getCurrentCrowd(data.popular_times);
+if (crowd == null) {
+div.innerHTML = `<strong>${name}</strong><br>⚠️ 沒有對應時段資料`;
+continue;
+}
+
+const colorClass = getColorClass(crowd);
+div.innerHTML = `<strong>${name}</strong><br>目前人流：<span class="${colorClass}">${crowd}%</span>`;
+speak(`${name} 現時人流約為 ${crowd}%。`, `${name}, current crowd level is around ${crowd} percent.`);
+}
+}
+
+function speak(zh, en) {
+const voices = window.speechSynthesis.getVoices();
+const zhVoice = voices.find(v => v.lang.includes("yue") || v.lang.includes("zh"));
+const enVoice = voices.find(v => v.lang.includes("en"));
+
+if (zhVoice) {
+const utterZh = new SpeechSynthesisUtterance(zh);
+utterZh.voice = zhVoice;
+window.speechSynthesis.speak(utterZh);
+}
+if (enVoice) {
+const utterEn = new SpeechSynthesisUtterance(en);
+utterEn.voice = enVoice;
+window.speechSynthesis.speak(utterEn);
+}
+}
+
+updateCrowd();
+setInterval(updateCrowd, 5 * 60 * 1000); // 每 5 分鐘更新
+</script>
+</body>
+</html>
