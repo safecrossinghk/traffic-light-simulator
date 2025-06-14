@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢</title>
+<style>
+body { font-family: "Microsoft JhengHei", sans-serif; background: #fff; color: #333; }
+h2 { margin-bottom: 10px; }
+.location { border-bottom: 1px solid #ccc; padding: 10px 0; }
+.status { font-weight: bold; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢</h2>
+<div id="results"></div>
+
+<script>
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const places = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const resultsDiv = document.getElementById("results");
+
+async function fetchCrowdData(place) {
+const encodedPlace = encodeURIComponent(place);
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodedPlace}&limit=1&language=zh-HK&region=hk`;
+
+try {
+const res = await fetch(url, {
+method: "GET",
+headers: {
+"X-API-KEY": apiKey,
+"Content-Type": "application/json"
+}
+});
+
+if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+const data = await res.json();
+const entry = data.data[0];
+let crowdLevel = "此地點暫無人流資料";
+let crowdClass = "";
+if (entry?.popular_times) {
+const dayIndex = new Date().getDay(); // Sunday = 0
+const hour = new Date().getHours();
+const todayData = entry.popular_times.find(p => p.day === dayIndex);
+if (todayData && todayData.data[hour] !== undefined) {
+const percentage = todayData.data[hour];
+crowdLevel = `目前人流約 ${percentage}%`;
+if (percentage < 40) crowdClass = "green";
+else if (percentage < 70) crowdClass = "yellow";
+else crowdClass = "red";
+}
+}
+
+return { place, crowdLevel, crowdClass };
+
+} catch (err) {
+console.warn(`${place} 查詢錯誤：`, err);
+return { place, crowdLevel: "⚠️ 此地點暫無人流資料", crowdClass: "" };
+}
+}
+
+async function updateAll() {
+resultsDiv.innerHTML = "";
+for (const place of places) {
+const result = await fetchCrowdData(place);
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<div>${result.place}</div><div class="status ${result.crowdClass}">${result.crowdLevel}</div>`;
+resultsDiv.appendChild(div);
+}
+}
+
+updateAll();
+setInterval(updateAll, 5 * 60 * 1000); // 每5分鐘更新
+</script>
+</body>
+</html>
