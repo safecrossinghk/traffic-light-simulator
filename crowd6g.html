@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（修正版）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; font-size: 1.2em; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+@media (max-width: 600px) {
+h2 { font-size: 1.2em; }
+.status { font-size: 1em; }
+}
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢（五個地點）</h2>
+<div id="results"></div>
+
+<script>
+const locations = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+function normalizePopularTimes(arr) {
+if (!Array.isArray(arr)) return null;
+const map = {};
+arr.forEach(dayObj => {
+const name = dayObj.day_text;
+map[name] = {};
+(dayObj.popular_times || []).forEach(item => {
+map[name][item.hour] = item.percentage;
+});
+});
+return map;
+}
+
+function speak(text, lang) {
+const u = new SpeechSynthesisUtterance(text);
+u.lang = lang;
+window.speechSynthesis.speak(u);
+}
+
+async function fetchPopularTimes(place, retries = 3) {
+try {
+const res1 = await fetch(`https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh&region=hk`, {
+headers: { "X-API-KEY": API_KEY }
+});
+const j1 = await res1.json();
+const id = j1.id;
+if (!id) throw new Error("查詢 ID 失敗");
+
+await new Promise(r => setTimeout(r, 5000)); // 5 秒等待
+
+const res2 = await fetch(`https://api.outscraper.cloud/requests/${id}`);
+const j2 = await res2.json();
+const raw = j2.data?.[0]?.[0]?.popular_times;
+return normalizePopularTimes(raw);
+} catch (err) {
+if (retries > 0) {
+console.warn(`⚠️ 重試中：${place}`);
+return await fetchPopularTimes(place, retries - 1);
+} else {
+console.warn(`❌ 查詢錯誤：${place}`, err);
+return null;
+}
+}
+}
+
+function getColorClass(percentage) {
+if (percentage <= 40) return "green";
+if (percentage <= 70) return "yellow";
+return "red";
+}
+
+async function displayAll() {
+const now = new Date();
+const weekday = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"][now.getDay()];
+const hour = now.getHours();
+const resultDiv = document.getElementById("results");
+resultDiv.innerHTML = ""; // 清空舊資料
+
+console.log("🔍 開始查詢即時人流...");
+
+for (const place of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${place}</h3><div class="status">⏳ 載入中...</div>`;
+resultDiv.appendChild(el);
+
+const data = await fetchPopularTimes(place);
+const statusEl = el.querySelector(".status");
+
+if (data) {
+const crowd = data[weekday]?.[hour];
+if (crowd !== undefined) {
+const colorClass = getColorClass(crowd);
+statusEl.className = `status ${colorClass}`;
+statusEl.innerText = `現時人流：${crowd}%`;
+
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spoken = lang === "zh-HK"
+? `${place} 現時人流係 ${crowd} 百分比`
+: `Current crowd level at ${place} is ${crowd} percent`;
+speak(spoken, lang);
+
+console.log(`${place} → ✅ ${crowd}%`);
+} else {
+statusEl.innerText = "⚠️ 無即時人流資料";
+console.warn(`${place} → ⚠️ 無資料`);
+}
+} else {
+statusEl.innerText = "❌ 查詢失敗或無 popular_times 資料";
+console.warn(`${place} → ❌ 查詢失敗`);
+}
+}
+}
+
+displayAll();
+setInterval(displayAll, 5 * 60 * 1000); // 每 5 分鐘自動更新
+</script>
+
+</body>
+</html>
