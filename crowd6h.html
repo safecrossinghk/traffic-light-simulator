@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢（五個地點）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.place { margin-bottom: 15px; }
+.status { font-weight: bold; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+.low { background-color: #a0e7a0; color: #065f00; } /* 疏落 - 綠色 */
+.medium { background-color: #fff3b0; color: #8a6d00; } /* 正常 - 黃色 */
+.high { background-color: #f8a5a5; color: #8b0000; } /* 擁擠 - 紅色 */
+.error { color: #d00; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢（五個地點）</h2>
+<div id="results"></div>
+
+<script>
+const places = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const resultsDiv = document.getElementById("results");
+
+async function fetchCrowdData(place) {
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&limit=1&language=zh-HK&region=hk`;
+try {
+const response = await fetch(url, {
+headers: { "X-API-KEY": apiKey }
+});
+const data = await response.json();
+const item = data.data[0];
+
+if (item && item.popular_times && item.popular_times.length > 0) {
+const now = new Date();
+const weekday = now.getDay(); // 0 = Sunday
+const hour = now.getHours();
+const times = item.popular_times.find(p => p.day === weekday);
+const crowd = times ? times.hours[hour] : null;
+
+let level = "";
+let className = "";
+
+if (crowd === null || crowd === undefined) {
+return `<div class="place"><strong>${place}</strong><br/><span class="error">⚠️ 此地點暫無人流資料</span></div>`;
+} else if (crowd <= 30) {
+level = "疏落";
+className = "low";
+} else if (crowd <= 70) {
+level = "正常";
+className = "medium";
+} else {
+level = "擁擠";
+className = "high";
+}
+
+return `<div class="place"><strong>${place}</strong><br/><span class="status ${className}">${level}</span></div>`;
+} else {
+return `<div class="place"><strong>${place}</strong><br/><span class="error">⚠️ 此地點暫無人流資料</span></div>`;
+}
+} catch (err) {
+return `<div class="place"><strong>${place}</strong><br/><span class="error">⚠️ 此地點暫無人流資料</span></div>`;
+}
+}
+
+async function updateAll() {
+resultsDiv.innerHTML = "🔄 查詢中...";
+const outputs = await Promise.all(places.map(p => fetchCrowdData(p)));
+resultsDiv.innerHTML = outputs.join("");
+}
+
+updateAll();
+setInterval(updateAll, 5 * 60 * 1000); // 每5分鐘自動更新
+</script>
+</body>
+</html>
