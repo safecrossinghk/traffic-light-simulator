@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>即時人流查詢（Place ID 版）</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+.location { margin-bottom: 20px; border-bottom: 1px solid #ccc; padding-bottom: 10px; }
+.status { font-weight: bold; font-size: 1.2em; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+@media (max-width: 600px) {
+h2 { font-size: 1.2em; }
+.status { font-size: 1em; }
+}
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢（Google Place ID）</h2>
+<div id="results"></div>
+
+<script>
+const locations = [
+{ name: "荃灣西站", place_id: "ChIJ0Y8Dyuj4AzQRObQ6ZpLAtpw" },
+{ name: "旺角朗豪坊", place_id: "ChIJSUsQeMcABDQRUladiJq44qw" },
+{ name: "深水埗地鐵站", place_id: "ChIJUaCTn7QABDQRhlcmZ-02QnU" },
+{ name: "尖沙咀海港城", place_id: "ChIJzXN62owABDQRMhRYGJnmKsY" },
+{ name: "中環交易廣場", place_id: "ChIJmYFgcWMABDQRZKPmTs0JiTQ" }
+];
+
+const API_KEY = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+
+function normalizePopularTimes(arr) {
+if (!Array.isArray(arr)) return null;
+const map = {};
+arr.forEach(dayObj => {
+const name = dayObj.day_text;
+map[name] = {};
+(dayObj.popular_times || []).forEach(item => {
+map[name][item.hour] = item.percentage;
+});
+});
+return map;
+}
+
+function speak(text, lang) {
+const u = new SpeechSynthesisUtterance(text);
+u.lang = lang;
+window.speechSynthesis.speak(u);
+}
+
+function getStatusText(pct) {
+if (pct <= 40) return { text: "疏落", class: "green" };
+if (pct <= 70) return { text: "正常", class: "yellow" };
+return { text: "擁擠", class: "red" };
+}
+
+async function fetchPopularTimes(placeId, retries = 3) {
+try {
+const res = await fetch(`https://api.app.outscraper.com/maps/details?place_id=${placeId}`, {
+headers: { "X-API-KEY": API_KEY }
+});
+const json = await res.json();
+const raw = json.data?.[0]?.popular_times;
+return normalizePopularTimes(raw);
+} catch (err) {
+if (retries > 0) {
+console.warn(`⚠️ 重試中：${placeId}`);
+await new Promise(r => setTimeout(r, 1000));
+return await fetchPopularTimes(placeId, retries - 1);
+} else {
+console.warn(`❌ 查詢失敗：${placeId}`, err);
+return null;
+}
+}
+}
+
+async function displayAll() {
+const now = new Date();
+const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][now.getDay()];
+const hour = now.getHours();
+const resultDiv = document.getElementById("results");
+resultDiv.innerHTML = "";
+
+for (const { name, place_id } of locations) {
+const el = document.createElement("div");
+el.className = "location";
+el.innerHTML = `<h3>${name}</h3><div class="status">⏳ 載入中...</div>`;
+resultDiv.appendChild(el);
+
+const data = await fetchPopularTimes(place_id);
+const statusEl = el.querySelector(".status");
+
+if (data && data[weekday]?.[hour] !== undefined) {
+const percentage = data[weekday][hour];
+const { text, class: colorClass } = getStatusText(percentage);
+statusEl.className = `status ${colorClass}`;
+statusEl.innerText = `現時人流：${text}`;
+
+const lang = navigator.language.startsWith("zh") ? "zh-HK" : "en-US";
+const spoken = lang === "zh-HK"
+? `${name} 現時人流係 ${text}`
+: `Current crowd level at ${name} is ${text}`;
+speak(spoken, lang);
+
+console.log(`${name} → ✅ ${text} (${percentage}%)`);
+} else {
+statusEl.className = "status";
+statusEl.innerText = "⚠️ 此地點暫無人流資料";
+console.warn(`${name} → ⚠️ 無資料`);
+}
+}
+}
+
+displayAll();
+setInterval(displayAll, 5 * 60 * 1000);
+</script>
+
+</body>
+</html>
