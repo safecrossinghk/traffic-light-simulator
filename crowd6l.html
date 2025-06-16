@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Proxy 測試</title>
+</head>
+<body>
+<h2>Outscraper 查詢中...</h2>
+<pre id="output">載入中...</pre>
+
+<script>
+const url = encodeURIComponent("https://api.app.outscraper.com/places/search-v2?query=旺角朗豪坊&language=zh-HK");
+
+fetch(`https://late-cloud-7951.ctakwah.workers.dev/?url=${url}`, {
+headers: {
+"X-API-KEY": "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"
+}
+})
+.then(response => response.json())
+.then(data => {
+document.getElementById("output").textContent = JSON.stringify(data, null, 2);
+})
+.catch(error => {
+document.getElementById("output").textContent = "錯誤：" + error;
+});
+</script>
+</body>
+</html>
