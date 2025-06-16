@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢（五個地點）</title>
+<style>
+body { font-family: Arial, sans-serif; background: #fff; padding: 20px; }
+h2 { color: #b30000; }
+.place { margin-bottom: 20px; }
+.status { font-weight: bold; }
+.low { color: green; }
+.medium { color: orange; }
+.high { color: red; }
+.error { color: darkred; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢（五個地點）</h2>
+<div id="results"></div>
+
+<script>
+const places = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const apiKey = "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg";
+const fallbackToId = false; // 如果名稱查詢失敗是否使用 maps_id fallback
+
+const resultDiv = document.getElementById("results");
+
+function classifyCrowdLevel(percent) {
+if (percent < 40) return { label: "疏落", class: "low" };
+if (percent < 70) return { label: "正常", class: "medium" };
+return { label: "擁擠", class: "high" };
+}
+
+async function fetchCrowd(place, retries = 3) {
+const url = `https://api.app.outscraper.com/maps/search-v2?query=${encodeURIComponent(place)}&lang=zh&limit=1`;
+
+try {
+const res = await fetch(url, {
+headers: { "X-API-KEY": apiKey }
+});
+
+const data = await res.json();
+
+const loc = data.results_locations?.[0];
+const crowd = loc?.popular_times?.[new Date().getDay()]?.data?.[new Date().getHours()];
+return (typeof crowd === "number") ? crowd : null;
+
+} catch (e) {
+if (retries > 0) {
+return await fetchCrowd(place, retries - 1);
+} else {
+return null;
+}
+}
+}
+
+async function showAll() {
+for (const place of places) {
+const container = document.createElement("div");
+container.className = "place";
+const title = document.createElement("div");
+title.innerText = place;
+const status = document.createElement("div");
+status.className = "status";
+container.appendChild(title);
+container.appendChild(status);
+resultDiv.appendChild(container);
+
+const value = await fetchCrowd(place);
+if (value !== null) {
+const { label, class: className } = classifyCrowdLevel(value);
+status.innerHTML = `目前人流：<span class="${className}">${label}</span>`;
+} else {
+status.innerHTML = `⚠️ <span class="error">此地點暫無人流資料</span>`;
+}
+}
+}
+
+showAll();
+</script>
+</body>
+</html>
