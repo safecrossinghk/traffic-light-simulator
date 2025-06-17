@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>實時人流查詢</title>
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+h2 { margin-top: 30px; }
+.location { margin-bottom: 20px; }
+.status { font-size: 18px; padding: 8px; border-radius: 5px; display: inline-block; }
+.green { background: #d4edda; color: #155724; }
+.yellow { background: #fff3cd; color: #856404; }
+.red { background: #f8d7da; color: #721c24; }
+</style>
+</head>
+<body>
+<h1>📍 即時人流查詢</h1>
+<div id="results"></div>
+
+<script>
+const locations = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+
+const workerBase = "https://dry-violet-d7b1.ctakwah.workers.dev/?query=";
+
+function getCrowdColor(percentage) {
+if (percentage < 40) return "green";
+if (percentage < 70) return "yellow";
+return "red";
+}
+
+function speak(text, lang) {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = lang;
+window.speechSynthesis.speak(utter);
+}
+
+async function fetchData() {
+const container = document.getElementById("results");
+container.innerHTML = "";
+
+for (const name of locations) {
+const div = document.createElement("div");
+div.className = "location";
+div.innerHTML = `<h2>${name}</h2><div>⏳ 載入中...</div>`;
+container.appendChild(div);
+
+try {
+const res = await fetch(workerBase + encodeURIComponent(name));
+const data = await res.json();
+
+if (!data.success || !data.popular_times || data.popular_times.length === 0) {
+div.innerHTML = `<h2>${name}</h2><div class="status yellow">⚠️ 無法取得人流資料</div>`;
+continue;
+}
+
+const now = new Date();
+const dayIndex = (now.getDay() + 6) % 7; // Sunday = 0 ➜ index 6
+const hour = now.getHours();
+const todayData = data.popular_times[dayIndex];
+const hourData = todayData.data.find(h => h.hour === hour);
+
+if (!hourData) {
+div.innerHTML = `<h2>${name}</h2><div class="status yellow">⚠️ 資料缺失</div>`;
+continue;
+}
+
+const percentage = hourData.percentage;
+const color = getCrowdColor(percentage);
+div.innerHTML = `<h2>${name}</h2><div class="status ${color}">目前人流：${percentage}%</div>`;
+
+// 播報語音（粵語 + 英語）
+speak(`${name}目前人流為 ${percentage}%。`, "zh-HK");
+speak(`The current crowd level at ${name} is ${percentage} percent.`, "en-US");
+
+} catch (err) {
+div.innerHTML = `<h2>${name}</h2><div class="status red">❌ 錯誤：${err.message}</div>`;
+}
+}
+}
+
+fetchData();
+setInterval(fetchData, 5 * 60 * 1000); // 每 5 分鐘更新
+</script>
+</body>
+</html>
