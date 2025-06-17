@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>📍即時人流查詢</title>
+<style>
+body { font-family: Arial, sans-serif; padding: 20px; }
+h2 { color: darkred; }
+.place { margin-bottom: 20px; }
+.status { font-weight: bold; }
+.green { color: green; }
+.orange { color: orange; }
+.red { color: red; }
+.error { color: darkred; }
+</style>
+</head>
+<body>
+<h2>📍即時人流查詢</h2>
+<div id="results"></div>
+
+<script>
+const places = [
+{ name: "荃灣西站", id: "ChIJ0Y8Dyuj4AzQRObQ6ZpLAtpw" },
+{ name: "旺角朗豪坊", id: "ChIJSUsQeMcABDQRUladiJq44qw" },
+{ name: "深水埗地鐵站", id: "ChIJUaCTn7QABDQRhlcmZ-02QnU" },
+{ name: "尖沙咀海港城", id: "ChIJzXN62owABDQRMhRYGJnmKsY" },
+{ name: "中環交易廣場", id: "ChIJmYFgcWMABDQRZKPmTs0JiTQ" }
+];
+
+const resultDiv = document.getElementById("results");
+
+function getStatusClass(pct) {
+if (pct < 40) return "green";
+if (pct < 70) return "orange";
+return "red";
+}
+
+function getStatusText(pct) {
+if (pct < 40) return "疏落";
+if (pct < 70) return "正常";
+return "擁擠";
+}
+
+function speak(text, lang) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = lang;
+window.speechSynthesis.speak(msg);
+}
+
+async function fetchData() {
+resultDiv.innerHTML = ""; // Clear previous
+
+for (const place of places) {
+const div = document.createElement("div");
+div.className = "place";
+div.innerHTML = `<strong>${place.name}</strong><br>⏳ 載入中...`;
+resultDiv.appendChild(div);
+
+try {
+const res = await fetch(`https://dry-violet-d7b1.ctakwah.workers.dev/?id=${place.id}`);
+const data = await res.json();
+
+// 錯誤防呆
+const now = new Date();
+const currentDay = now.toLocaleString("en-US", { weekday: 'long' });
+const currentHour = now.getHours();
+
+const dayData = (data.popular_times || []).find(d => d.day_text === currentDay);
+
+if (!dayData || !Array.isArray(dayData.data)) {
+throw new Error("資料格式錯誤");
+}
+
+const hourData = dayData.data.find(h => h.hour === currentHour);
+
+if (!hourData || typeof hourData.percentage !== "number") {
+throw new Error("今日資料缺失");
+}
+
+const pct = hourData.percentage;
+const status = getStatusText(pct);
+const statusClass = getStatusClass(pct);
+
+div.innerHTML = `<strong>${place.name}</strong><br><span class="status ${statusClass}">${status}</span>`;
+speak(`${place.name}：${status}`, "zh-HK");
+
+} catch (err) {
+div.innerHTML = `<strong>${place.name}</strong><br><span class="error">⚠️ 錯誤：${err.message}</span>`;
+}
+}
+}
+
+fetchData();
+setInterval(fetchData, 5 * 60 * 1000); // 每5分鐘更新一次
+</script>
+</body>
+</html>
