@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢</title>
+<style>
+body { font-family: "Microsoft JhengHei", sans-serif; background: #fffbe6; padding: 20px; }
+h1 { color: #c00; }
+h2 { margin-bottom: 5px; }
+.status { margin-bottom: 15px; font-weight: bold; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+</style>
+</head>
+<body>
+<h1>📍 即時人流查詢</h1>
+<div id="results">載入中...</div>
+
+<script>
+const locations = [
+{ name: "荃灣西站", query: "荃灣西站" },
+{ name: "旺角朗豪坊", query: "旺角朗豪坊" },
+{ name: "深水埗地鐵站", query: "深水埗地鐵站" },
+{ name: "尖沙咀海港城", query: "尖沙咀海港城" },
+{ name: "中環交易廣場", query: "中環交易廣場" }
+];
+
+const dayNames = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+async function fetchCrowdData() {
+const container = document.getElementById("results");
+container.innerHTML = "";
+
+const now = new Date();
+const hour = now.getHours();
+const todayText = dayNames[now.getDay()];
+
+for (const loc of locations) {
+const div = document.createElement("div");
+try {
+const res = await fetch(`https://dry-violet-d7b1.ctakwah.workers.dev/?query=${encodeURIComponent(loc.query)}`);
+const json = await res.json();
+
+if (!json.success || !json.popular_times || !Array.isArray(json.popular_times)) {
+throw new Error("資料格式錯誤");
+}
+
+const todayData = json.popular_times.find(d => d.day === todayText);
+
+if (!todayData || !todayData.data || !Array.isArray(todayData.data)) {
+div.innerHTML = `<h2>${loc.name}</h2><div class="status yellow">⚠️ 今日資料缺失</div>`;
+container.appendChild(div);
+continue;
+}
+
+const hourData = todayData.data.find(h => h.hour === hour);
+if (!hourData) {
+div.innerHTML = `<h2>${loc.name}</h2><div class="status yellow">⚠️ 指定時段資料缺失</div>`;
+container.appendChild(div);
+continue;
+}
+
+const percent = hourData.percentage;
+let level = "⚪ 無法判斷";
+let css = "yellow";
+
+if (percent < 30) {
+level = "🟢 疏落";
+css = "green";
+} else if (percent < 60) {
+level = "🟡 正常";
+css = "yellow";
+} else {
+level = "🔴 擁擠";
+css = "red";
+}
+
+div.innerHTML = `<h2>${loc.name}</h2><div class="status ${css}">${level}</div>`;
+} catch (e) {
+div.innerHTML = `<h2>${loc.name}</h2><div class="status red">❌ 錯誤：${e.message}</div>`;
+}
+container.appendChild(div);
+}
+}
+
+fetchCrowdData();
+setInterval(fetchCrowdData, 5 * 60 * 1000); // 每 5 分鐘自動更新
+</script>
+</body>
+</html>
