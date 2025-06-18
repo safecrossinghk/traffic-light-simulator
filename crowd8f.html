@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢 Crowd8b3</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+input, button { padding: 8px; font-size: 16px; margin: 5px 0; }
+#result { margin-top: 20px; white-space: pre-wrap; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢 Crowd8b3</h2>
+
+<label>地點關鍵字（如：旺角朗豪坊）</label><br>
+<input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
+<button onclick="fetchCrowd()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+
+<script>
+async function fetchCrowd() {
+const query = document.getElementById("queryInput").value.trim();
+const resultDiv = document.getElementById("result");
+if (!query) {
+resultDiv.textContent = "❗ 請輸入地點名稱";
+return;
+}
+
+resultDiv.textContent = "⏳ 正在查詢中，請稍候...";
+
+try {
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+const data = await res.json();
+
+if (!data.success) {
+resultDiv.textContent = "⚠️ 查詢失敗：" + (data.message || "未知錯誤");
+return;
+}
+
+// ✅ 1. 嘗試使用即時人流數據（如有）
+if (data.current_popularity && typeof data.current_popularity.percentage === "number") {
+const current = data.current_popularity;
+let label = "🟢 正常";
+if (current.percentage >= 70) label = "🔴 擠迫";
+else if (current.percentage >= 40) label = "🟡 偏多";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`📅 狀態：即時現場\n` +
+`🕒 時段：${current.time} 時\n` +
+`📊 即時人流：${current.percentage}%\n` +
+`📌 狀態：${label}\n` +
+(current.title ? `🗒️ 備註：${current.title}` : '');
+return;
+}
+
+// ✅ 2. fallback 到 popular_times（歷史資料）
+if (!Array.isArray(data.popular_times)) {
+resultDiv.textContent = "⚠️ 沒有找到歷史人流資料。";
+return;
+}
+
+const now = new Date();
+const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+const hour = now.getHours();
+
+const todayData = data.popular_times.find(d => d.day_text === todayName);
+if (!todayData || !Array.isArray(todayData.popular_times)) {
+resultDiv.textContent = `⚠️ 今日 (${todayName}) 沒有人流資料。`;
+return;
+}
+
+const hourData = todayData.popular_times.find(h => h.hour === hour);
+if (!hourData) {
+resultDiv.textContent = `⚠️ 找不到 ${hour} 時的歷史人流資料。`;
+return;
+}
+
+let label = "🟢 正常";
+if (hourData.percentage >= 70) label = "🔴 擠迫";
+else if (hourData.percentage >= 40) label = "🟡 偏多";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`📅 星期：${todayName}（歷史資料）\n` +
+`🕒 時段：${hourData.time}\n` +
+`📊 人流：${hourData.percentage}%\n` +
+`📌 狀態：${label}\n` +
+(hourData.title ? `🗒️ 備註：${hourData.title}` : '');
+
+} catch (err) {
+resultDiv.textContent = "❌ 查詢失敗：" + err;
+}
+}
+</script>
+
+</body>
+</html>
