@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢 Crowd8b8</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body {
+font-family: "Helvetica Neue", sans-serif;
+padding: 20px;
+margin: 0;
+background: #f5f5f5;
+}
+h2 { font-size: 1.5em; }
+input, button {
+font-size: 1em;
+padding: 10px;
+margin-top: 5px;
+width: 100%;
+box-sizing: border-box;
+}
+button {
+background: #007bff;
+color: white;
+border: none;
+border-radius: 5px;
+cursor: pointer;
+}
+button:disabled {
+background: #aaa;
+}
+#result {
+margin-top: 20px;
+background: #fff;
+padding: 15px;
+border-radius: 6px;
+border: 1px solid #ccc;
+white-space: pre-wrap;
+}
+.spinner {
+border: 4px solid #f3f3f3;
+border-top: 4px solid #007bff;
+border-radius: 50%;
+width: 24px;
+height: 24px;
+animation: spin 1s linear infinite;
+display: inline-block;
+vertical-align: middle;
+margin-right: 8px;
+}
+@keyframes spin {
+0% { transform: rotate(0deg); }
+100% { transform: rotate(360deg); }
+}
+@media (max-width: 600px) {
+h2 { font-size: 1.2em; }
+}
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢 Crowd8b8</h2>
+<label for="queryInput">地點關鍵字（例如：旺角朗豪坊）</label>
+<input type="text" id="queryInput" placeholder="請輸入地點名稱">
+<button onclick="fetchCrowd()">查詢</button>
+
+<div id="result">🔍 請輸入地點名稱查詢</div>
+
+<script>
+document.getElementById("queryInput").addEventListener("keypress", function(e) {
+if (e.key === "Enter") fetchCrowd();
+});
+
+async function fetchCrowd(retry = true) {
+const query = document.getElementById("queryInput").value.trim();
+const resultDiv = document.getElementById("result");
+
+if (!query) {
+resultDiv.textContent = "❗ 請輸入地點名稱";
+return;
+}
+
+resultDiv.innerHTML = '<span class="spinner"></span>⏳ 正在查詢中，請稍候...';
+
+try {
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+const data = await res.json();
+console.log("[DEBUG] API 返回資料：", data);
+
+if (!data.success) throw new Error(data.message || "API 查詢失敗");
+
+// ✅ 即時人流
+if (data.current_popularity && typeof data.current_popularity.percentage === "number") {
+const cur = data.current_popularity;
+let label = "🟢 正常";
+if (cur.percentage >= 70) label = "🔴 擠迫";
+else if (cur.percentage >= 40) label = "🟡 偏多";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`📅 狀態：即時現場\n` +
+`🕒 時段：${cur.time} 時\n` +
+`📊 即時人流：${cur.percentage}%\n` +
+`📌 狀態：${label}\n` +
+(cur.title ? `🗒️ 備註：${cur.title}` : '');
+return;
+}
+
+// ✅ fallback 歷史人流
+const now = new Date();
+const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+const currentHour = now.getHours();
+
+const todayData = data.popular_times?.find(d => d.day_text === todayName);
+if (!todayData || !Array.isArray(todayData.popular_times)) {
+resultDiv.textContent = `⚠️ 今日 (${todayName}) 沒有歷史資料。`;
+return;
+}
+
+const fallbackHourData = [...todayData.popular_times]
+.filter(h => h.hour <= currentHour)
+.sort((a, b) => b.hour - a.hour)[0];
+
+if (!fallbackHourData) {
+resultDiv.textContent = `⚠️ 找不到適用的人流歷史資料。`;
+return;
+}
+
+let label = "🟢 正常";
+if (fallbackHourData.percentage >= 70) label = "🔴 擠迫";
+else if (fallbackHourData.percentage >= 40) label = "🟡 偏多";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`📅 星期：${todayName}（歷史資料）\n` +
+`🕒 時段：${fallbackHourData.hour} 时\n` +
+`📊 人流：${fallbackHourData.percentage}%\n` +
+`📌 狀態：${label}\n` +
+(fallbackHourData.title ? `🗒️ 備註：${fallbackHourData.title}` : '');
+
+} catch (err) {
+console.warn("[DEBUG] 查詢失敗，錯誤為：", err);
+if (retry) {
+console.log("[DEBUG] 自動重試中...");
+fetchCrowd(false); // 第二次不再 retry
+} else {
+resultDiv.textContent = "❌ 查詢失敗，請再試一次或使用常見地點名稱（例如：尖沙咀海港城、旺角朗豪坊）。";
+}
+}
+}
+</script>
+
+</body>
+</html>
