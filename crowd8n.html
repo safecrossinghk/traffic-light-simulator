@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢 Crowd8b10</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f5f5f5; }
+input, button { font-size: 16px; padding: 10px; width: 100%; box-sizing: border-box; }
+button { background: #007bff; color: white; border: none; border-radius: 5px; margin-top: 5px; }
+#result { margin-top: 20px; background: #fff; padding: 15px; border: 1px solid #ccc; border-radius: 6px; white-space: pre-wrap; }
+.spinner { border: 4px solid #f3f3f3; border-top: 4px solid #007bff; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+@keyframes spin { 0% {transform: rotate(0);} 100% {transform: rotate(360deg);} }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢 Crowd8b10</h2>
+<input type="text" id="queryInput" placeholder="例如：香港國際機場">
+<button onclick="lookup()">查詢</button>
+<div id="result">🔍 請輸入地點名稱查詢</div>
+
+<script>
+document.getElementById("queryInput").addEventListener("keypress", e => {
+if (e.key === "Enter") lookup();
+});
+
+async function lookup(retry = true) {
+const q = document.getElementById("queryInput").value.trim();
+const o = document.getElementById("result");
+if (!q) return o.textContent = "❗ 請輸入地點名稱";
+
+o.innerHTML = '<span class="spinner"></span>⏳ 查詢中...';
+console.log(`[Crowd8b10] 查詢：${q}`);
+
+try {
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(q));
+const data = await res.json();
+console.log("[Crowd8b10] API 回傳：", data);
+
+if (!data.success) throw new Error(data.message);
+
+if (data.current_popularity && typeof data.current_popularity.percentage === "number") {
+const cur = data.current_popularity;
+console.log("[Crowd8b10] 使用即時資料", cur);
+show(q, cur.time, cur.percentage, cur.title, true);
+return;
+}
+
+// Fallback
+const now = new Date(), today = now.toLocaleDateString("en-US",{weekday:"long"}), hr = now.getHours();
+const arr = data.popular_times?.find(d => d.day_text === today)?.popular_times;
+const fb = Array.isArray(arr) ? arr.filter(h=>h.hour <= hr).sort((a,b)=>b.hour-a.hour)[0] : null;
+if (fb) {
+console.log("[Crowd8b10] 使用歷史 fallback", fb);
+show(q, fb.hour, fb.percentage, fb.title, false);
+return;
+}
+
+o.textContent = "⚠️ 未有可用資料";
+}
+catch (e) {
+console.error("[Crowd8b10] 錯誤", e);
+if (retry) {
+console.log("[Crowd8b10] 自動 retry");
+return lookup(false);
+}
+o.textContent = "❌ 查詢失敗：" + e;
+}
+}
+
+function show(place, time, pct, note, live) {
+const o = document.getElementById("result");
+const label = pct >= 70 ? "🔴 擠迫"
+: pct >= 40 ? "🟡 偏多"
+: "🟢 正常";
+o.textContent =
+`📍 查詢地點：${place}\n` +
+`🕒 時段：${time} 時\n` +
+`📊 ${live ? "即時" : "历史"} 人流：${pct}%\n` +
+`📌 狀態：${label}` +
+(note ? `\n🗒️ 備註：${note}` : '');
+}
+</script>
+
+</body>
+</html>
