@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢 Crowd7E 修正版</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+input, button { padding: 8px; font-size: 16px; margin: 5px 0; }
+#result { margin-top: 20px; white-space: pre-wrap; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢 Crowd7E</h2>
+
+<label>地點關鍵字（如：旺角朗豪坊）</label><br>
+<input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
+<button onclick="fetchCrowd()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+
+<script>
+async function fetchCrowd() {
+const query = document.getElementById("queryInput").value.trim();
+const resultDiv = document.getElementById("result");
+if (!query) {
+resultDiv.textContent = "❗ 請輸入地點名稱";
+return;
+}
+
+resultDiv.textContent = "⏳ 正在查詢中，請稍候...";
+
+try {
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+const data = await res.json();
+
+if (!data.success || !Array.isArray(data.popular_times)) {
+resultDiv.textContent = "⚠️ 未能取得人流資料。\n\n錯誤訊息：" + (data.message || "無 popular_times 資料");
+return;
+}
+
+const now = new Date();
+const hour = now.getHours();
+
+const hourData = data.popular_times.find(d => d.hour === hour);
+if (!hourData) {
+resultDiv.textContent = `⚠️ 找不到當前 ${hour} 時的人流百分比。`;
+return;
+}
+
+let label = "🟢 正常";
+if (hourData.percentage >= 70) label = "🔴 擠迫";
+else if (hourData.percentage >= 40) label = "🟡 偏多";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`🕒 時段：${hourData.time}\n` +
+`📊 人流：${hourData.percentage}%\n` +
+`📌 狀態：${label}`;
+} catch (err) {
+resultDiv.textContent = "❌ 查詢失敗：" + err;
+}
+}
+</script>
+
+</body>
+</html>
