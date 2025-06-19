@@ -13,6 +13,7 @@ input, button { padding: 8px; font-size: 16px; margin: 5px 0; }
 
 <h2>📍 即時人流查詢 Crowd8b13</h2>
 
+<label>地點關鍵字（如：旺角朗豪坊）</label><br>
 <input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
 <button onclick="startQuery()">查詢</button>
 
@@ -67,6 +68,7 @@ resultDiv.textContent =
 `📊 現時人流：${liveItem.percentage}%\n` +
 
 `📌 狀態：${label}\n` +
+(liveItem.title ? `
 }
 
 // fallback：找歷史資料
