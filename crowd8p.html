@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>自動輪查五地點人流 Crowd8c</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; text-align: center; }
+.location-box { margin: 30px auto; padding: 20px; width: 90%; max-width: 400px; background: #fff;
+border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.1); }
+.place { font-size: 1.5em; margin-bottom: 10px; }
+.status { font-size: 2em; font-weight: bold; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+</style>
+</head>
+<body>
+<h2>📍 五地點自動即時人流檢視</h2>
+<div class="location-box">
+<div id="placeName" class="place">───</div>
+<div id="placeStatus" class="status">───</div>
+</div>
+
+<script>
+const locations = [
+"荃灣西站",
+"旺角朗豪坊",
+"深水埗地鐵站",
+"尖沙咀海港城",
+"中環交易廣場"
+];
+let index = 0;
+
+async function fetchCrowd(place) {
+try {
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(place));
+const data = await res.json();
+
+console.log(`[${place}] API →`, data);
+let percentage, title;
+
+if (data.current_popularity && typeof data.current_popularity.percentage === "number") {
+percentage = data.current_popularity.percentage;
+title = data.current_popularity.title || '';
+console.log(`[${place}] 即時資料使用，%=${percentage}, title=${title}`);
+} else if (Array.isArray(data.popular_times)) {
+const now = new Date(), today = now.toLocaleDateString("en-US",{weekday:"long"}), h = now.getHours();
+const todayData = data.popular_times.find(d=>d.day_text===today);
+if (todayData && Array.isArray(todayData.popular_times)) {
+const f = todayData.popular_times
+.filter(it=>it.hour <= h)
+.sort((a,b)=>b.hour - a.hour)[0];
+if (f) {
+percentage = f.percentage;
+title = f.title || '';
+console.log(`[${place}] 使用歷史 fallback %=${percentage}, title=${title}`);
+}
+}
+}
+
+if (typeof percentage !== 'number') {
+return { status: '⚠️ 暫無資料', color: '' };
+}
+
+let label = '', cls = '';
+if (percentage >= 70) { label = '擠迫'; cls = 'red'; }
+else if (percentage >= 40) { label = '正常'; cls = 'yellow'; }
+else { label = '疏落'; cls = 'green'; }
+
+return { status: `${label}`, color: cls };
+} catch (err) {
+console.error(`[${place}] 查詢錯誤`, err);
+return { status: '⚠️ 查詢失敗', color: '' };
+}
+}
+
+async function rotate() {
+const place = locations[index];
+document.getElementById('placeName').textContent = place;
+document.getElementById('placeStatus').textContent = '⏳ 查詢中...';
+document.getElementById('placeStatus').className = 'status';
+
+const result = await fetchCrowd(place);
+document.getElementById('placeStatus').textContent = result.status;
+document.getElementById('placeStatus').className = 'status ' + result.color;
+
+index = (index + 1) % locations.length;
+}
+
+rotate();
+setInterval(rotate, 8000);
+</script>
+</body>
+</html>
