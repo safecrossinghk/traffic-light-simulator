@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f9f9f9; }
+input, button { padding: 8px; font-size: 16px; margin: 5px 0; }
+#result { margin-top: 20px; white-space: pre-wrap; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢</h2>
+
+<!-- ✅ 只保留輸入框與查詢按鈕 -->
+<input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
+<button onclick="startQuery()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+
+<script>
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+for (let attempt = 1; attempt <= retries; attempt++) {
+try {
+console.log(`🔁 第 ${attempt} 次查詢中...`);
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+if (!res.ok) throw new Error("HTTP error " + res.status);
+const data = await res.json();
+if (!data.success) throw new Error(data.message || "未知錯誤");
+return data;
+} catch (e) {
+if (attempt === retries) throw e;
+await new Promise(resolve => setTimeout(resolve, delay));
+}
+}
+}
+
+async function startQuery() {
+const query = document.getElementById("queryInput").value.trim();
+const resultDiv = document.getElementById("result");
+
+if (!query) {
+resultDiv.textContent = "❗ 請輸入地點名稱";
+return;
+}
+
+resultDiv.textContent = "⏳ 正在查詢中，請稍候...";
+
+try {
+const data = await fetchWithRetry(query, 3);
+console.log("✅ API 回傳：", data);
+
+// 🔍 先查即時資料 day: "live"
+let liveItem = null;
+if (Array.isArray(data.popular_times)) {
+liveItem = data.popular_times.find(d => d.day === "live");
+}
+
+if (liveItem && typeof liveItem.percentage === "number") {
+let label = "🟢 偏少";
+if (liveItem.percentage >= 80) label = "🔴 擠逼";
+else if (liveItem.percentage >= 20) label = "🟡 正常";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`👥 現時人流：${label}`;
+return;
+}
+
+// fallback：找歷史資料
+if (!Array.isArray(data.popular_times)) {
+resultDiv.textContent = "⚠️ 沒有找到歷史人流資料。";
+return;
+}
+
+const now = new Date();
+const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+const currentHour = now.getHours();
+
+const todayData = data.popular_times.find(d => d.day_text === todayName);
+if (!todayData || !Array.isArray(todayData.popular_times)) {
+resultDiv.textContent = `⚠️ 今日 (${todayName}) 沒有歷史人流資料。`;
+return;
+}
+
+const fallback = [...todayData.popular_times]
+.filter(h => h.hour <= currentHour)
+.sort((a, b) => b.hour - a.hour)[0];
+
+if (!fallback) {
+resultDiv.textContent = "⚠️ 找不到可用的歷史資料。";
+return;
+}
+
+let label = "🟡 偏少";
+if (fallback.percentage >= 80) label = "🔴 擠逼";
+else if (fallback.percentage >= 20) label = "🟢 正常";
+
+resultDiv.textContent =
+`📍 查詢地點：${query}\n` +
+`👥 現時人流：${label}`;
+
+} catch (err) {
+resultDiv.textContent = "系統繁忙，請稍候再試";
+}
+}
+</script>
+
+</body>
+</html>
