@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css"
+/>
+<style>
+body {
+font-family: "Segoe UI", sans-serif;
+padding: 1em;
+background: #f9f9f9;
+}
+h2 {
+margin-top: 0.2em;
+}
+input, button {
+font-size: 1em;
+padding: 0.5em;
+margin: 0.3em 0;
+width: 100%;
+box-sizing: border-box;
+}
+#result {
+margin-top: 1em;
+padding: 1em;
+background: #fff;
+border-radius: 8px;
+box-shadow: 0 0 4px rgba(0,0,0,0.1);
+}
+#map {
+height: 300px;
+margin-top: 1em;
+border-radius: 8px;
+overflow: hidden;
+}
+a.waze-link {
+display: inline-block;
+margin-top: 0.5em;
+color: #0057e7;
+font-weight: bold;
+}
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢</h2>
+
+<!-- ✅ 只保留輸入框與查詢按鈕 -->
+<input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
+<button onclick="fetchCrowd()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+
+<script>
+document.getElementById("queryInput").addEventListener("keypress", function(e) {
+if (e.key === "Enter") fetchCrowd();
+});
+
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+for (let attempt = 1; attempt <= retries; attempt++) {
+try {
+console.log(`🔁 第 ${attempt} 次查詢中...`);
+const res = await fetch("https://damp-cloud-8596.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+if (!res.ok) throw new Error("HTTP error " + res.status);
+const data = await res.json();
+if (!data.success) throw new Error(data.message || "未知錯誤");
+return data;
+} catch (e) {
+if (attempt === retries) throw e;
+await new Promise(resolve => setTimeout(resolve, delay));
+}
+}
+}
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([22.3964, 114.1095], 11); // 預設香港
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '© OpenStreetMap'
+}).addTo(map);
+let marker;
+
+async function search() {
+const place = document.getElementById("place").value.trim();
+const resultDiv = document.getElementById("result");
+if (!place) {
+resultDiv.innerHTML = "❗請輸入地點名稱。";
+return;
+}
+
+resultDiv.innerHTML = "⏳ 正在查詢中…";
+
+try {
+const response = await fetch("https://api.app.outscraper.com/places/search-v2", {
+method: "POST",
+headers: {
+"Content-Type": "application/json",
+"X-API-KEY": "MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg"
+},
+body: JSON.stringify({ query: place, limit: 1, language: "zh-TW", region: "HK" })
+});
+
+const data = await response.json();
+const placeData = data[0]?.places[0];
+
+if (!placeData) {
+resultDiv.innerHTML = "⚠️ 找不到該地點。";
+return;
+}
+
+// 顯示名稱與地址
+const name = placeData.title || "未知地點";
+const address = placeData.address || "";
+const lat = placeData.coordinates?.lat;
+const lng = placeData.coordinates?.lng;
+
+// 顯示即時人流資料
+let liveItem = null;
+if (Array.isArray(placeData.popular_times)) {
+// 🔍 先查即時資料 day: "live"
+liveItem = placeData.popular_times.find(d => d.day === "live");
+}
+
+let label = "❓ 無即時人流數據";
+if (liveItem && typeof liveItem.percentage === "number") {
+if (liveItem.percentage >= 70) label = "🔴 擠逼";
+else if (liveItem.percentage >= 20) label = "🟡 正常";
+else label = "🟢 偏少";
+label += `（${liveItem.percentage}%）`;
+}
+
+resultDiv.innerHTML = `
+📌 <b>${name}</b><br>
+🧭 ${address}<br>
+👥 即時人流狀況：${label}
+${lat && lng ? `<br><a class="waze-link" href="https://waze.com/ul?ll=${lat},${lng}&navigate=yes" target="_blank">🚗 使用 Waze 導航</a>` : ""}
+`;
+
+// 更新地圖
+if (lat && lng) {
+map.setView([lat, lng], 16);
+if (marker) marker.remove();
+marker = L.marker([lat, lng]).addTo(map).bindPopup(name).openPopup();
+}
+
+} catch (error) {
+console.error(error);
+resultDiv.innerHTML = "❌ 查詢時出錯，請稍後再試。";
+}
+}
+</script>
+</body>
+</html>
