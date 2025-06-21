@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>香港餐廳即時人流 + 堂食等候時間</title>
+<style>
+body { font-family: sans-serif; padding: 1em; background: #f8f8f8; }
+h2 { color: #d40000; }
+.restaurant { background: white; padding: 1em; margin: 1em 0; border-radius: 8px; box-shadow: 0 0 4px rgba(0,0,0,0.1); }
+.status { font-weight: bold; font-size: 1.2em; color: #333; }
+</style>
+</head>
+<body>
+<h2>🍜 香港餐廳即時人流 + 堂食等候時間預估</h2>
+<div id="results">載入中...</div>
+
+<script>
+const restaurants = [
+{ name: "譚仔三哥（尖沙咀）", query: "譚仔三哥 尖沙咀" },
+{ name: "稻香超級漁港（旺角）", query: "稻香 旺角" },
+{ name: "金記冰室（銅鑼灣）", query: "金記冰室 銅鑼灣" },
+{ name: "九記牛腩（中環）", query: "九記牛腩 中環" },
+{ name: "大家樂（沙田）", query: "大家樂 沙田" }
+];
+
+// 推算堂食等位時間邏輯（拉闊版）
+function estimateWait(popularity) {
+if (popularity <= 40) return "無需等位";
+if (popularity <= 60) return "約 10–20 分鐘";
+if (popularity <= 75) return "約 20–30 分鐘";
+if (popularity <= 85) return "約 30–45 分鐘";
+if (popularity <= 95) return "約 45–60 分鐘";
+return "可能超過 1 小時";
+}
+
+// 使用中轉的 Cloudflare Worker API（避免洩漏 API 金鑰）
+async function fetchData(query) {
+const res = await fetch("https://crowd-api-demo.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+const data = await res.json();
+return data;
+}
+
+// 粵語語音播報
+function speak(text) {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = 'zh-HK';
+speechSynthesis.speak(utter);
+}
+
+// 主更新函數
+async function update() {
+const container = document.getElementById("results");
+container.innerHTML = "";
+
+for (const r of restaurants) {
+const data = await fetchData(r.query);
+const popularity = data.popularity || 0;
+const waitTime = estimateWait(popularity);
+const html = `
+<div class="restaurant">
+<div><strong>${r.name}</strong></div>
+<div class="status">👥 即時人流：${popularity}%</div>
+<div class="status">⏱️ 堂食等候時間預估：${waitTime}</div>
+</div>
+`;
+container.innerHTML += html;
+
+// 粵語語音播報內容
+speak(`${r.name}，人流 ${popularity} 百分比，堂食預計等位 ${waitTime}`);
+}
+}
+
+update(); // 初次載入
+setInterval(update, 300000); // 每 5 分鐘更新一次
+</script>
+</body>
+</html>
