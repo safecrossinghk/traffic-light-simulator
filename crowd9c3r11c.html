@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>📍即時人流查詢</title>
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+/>
+<style>
+body {
+font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+font-size: 18px;
+padding: 1rem;
+}
+input, button {
+font-size: 1rem;
+padding: 0.4rem;
+margin: 0.2rem;
+}
+#map {
+height: 300px;
+margin-top: 1rem;
+}
+.mobile-friendly {
+font-size: 1.1rem;
+}
+</style>
+</head>
+<body>
+<h3>📍 即時人流查詢</h3>
+<label for="place">查詢地點關鍵字：</label>
+<input id="place" placeholder="例如：香港國際機場" />
+<button onclick="search()">查詢</button>
+<div id="result" class="mobile-friendly"></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map;
+let marker;
+
+function initMap(lat = 22.3193, lon = 114.1694) {
+if (!map) {
+map = L.map("map").setView([lat, lon], 12);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+attribution: "&copy; OpenStreetMap contributors",
+}).addTo(map);
+} else {
+map.setView([lat, lon], 12);
+if (marker) map.removeLayer(marker);
+}
+
+marker = L.marker([lat, lon]).addTo(map);
+}
+
+async function search() {
+const place = document.getElementById("place").value.trim();
+const resultDiv = document.getElementById("result");
+resultDiv.innerHTML = "";
+
+if (!place) {
+resultDiv.innerHTML = "⚠️ 請輸入查詢地點。";
+return;
+}
+
+const res = await fetch(
+`https://safecrossinghk-cf.outscraper.workers.dev/search?q=${encodeURIComponent(place)}`
+);
+const data = await res.json();
+console.log("API 回傳:", data);
+
+if (
+!data.success ||
+!Array.isArray(data.popular_times) ||
+data.popular_times.length === 0
+) {
+resultDiv.innerHTML = `⚠️ 查無即時人流資料：${place}`;
+return;
+}
+
+const weekIndex = new Date().getDay(); // 0 = Sunday
+const hour = new Date().getHours();
+const hourData = data.popular_times[weekIndex]?.data?.[hour];
+
+if (hourData === undefined) {
+resultDiv.innerHTML = `⚠️ ${place} 沒有該時段人流資料`;
+return;
+}
+
+const percent = hourData;
+resultDiv.innerHTML = `📍 查詢地點：${data.query_used}<br>👥 現時人流：人氣正率（約 ${percent}%）`;
+
+if (data.location) {
+initMap(data.location.lat, data.location.lng);
+} else {
+resultDiv.innerHTML += `<br>⚠️ 沒有經緯度資料，地圖無法顯示`;
+}
+
+// 語音提示（中英）
+const msg = new SpeechSynthesisUtterance(`現時 ${place} 人流大約 ${percent}%。`);
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+}
+
+// 預設載入顯示香港地圖
+window.onload = () => {
+initMap();
+};
+</script>
+</body>
+</html>
