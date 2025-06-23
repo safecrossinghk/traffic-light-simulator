@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>📍 即時人流查詢</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+body {
+font-family: sans-serif;
+padding: 20px;
+font-size: 18px;
+}
+input, button {
+padding: 10px;
+font-size: 18px;
+margin: 5px 0;
+}
+#result {
+margin-top: 20px;
+}
+#map {
+height: 300px;
+margin-top: 20px;
+}
+.busy {
+color: red;
+font-weight: bold;
+}
+.normal {
+color: green;
+font-weight: bold;
+}
+</style>
+</head>
+<body>
+
+<h2>📍 即時人流查詢</h2>
+
+<label>查詢地點關鍵字：</label>
+<input id="keyword" placeholder="例如：香港國際機場" />
+<button onclick="query()">查詢</button>
+
+<div id="result"></div>
+<div id="map"></div>
+
+<script>
+let map; // 地圖物件全域宣告
+let marker; // 標記點
+
+// 預設載入香港地圖
+window.onload = () => {
+map = L.map("map").setView([22.302711, 114.177216], 11);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+maxZoom: 19,
+}).addTo(map);
+};
+
+async function query() {
+const q = document.getElementById("keyword").value.trim();
+const resultDiv = document.getElementById("result");
+resultDiv.innerHTML = "";
+
+if (!q) {
+resultDiv.innerHTML = "❗ 請輸入查詢地點。";
+return;
+}
+
+try {
+const res = await fetch("https://tiny-disk-0d7b.ctakwah.workers.dev/?query=" + encodeURIComponent(q));
+const data = await res.json();
+
+console.log("✅ API 回傳：", data);
+
+if (!data.success || !data.popular_times) {
+resultDiv.innerHTML = "⚠️ 查無即時人流資料。";
+return;
+}
+
+const now = new Date();
+const hour = now.getHours();
+const todayIndex = now.getDay(); // Sunday = 0
+const weekIndex = todayIndex === 0 ? 6 : todayIndex - 1;
+const hourData = data.popular_times[weekIndex]?.data?.[hour];
+
+const label = hourData >= 70 ? "非常繁忙" : "人流正常";
+const className = hourData >= 70 ? "busy" : "normal";
+
+resultDiv.innerHTML = `
+📌 查詢地點：${q}<br>
+👥 現時人流：<span class="${className}">${label}（約 ${hourData}%）</span><br>
+`;
+
+// 語音播報
+const msg = new SpeechSynthesisUtterance();
+msg.lang = "zh-HK";
+msg.text = `${q}現時人流：${label}`;
+speechSynthesis.speak(msg);
+
+// 顯示地圖
+let lat = data.location?.lat;
+let lng = data.location?.lng;
+
+// fallback 從 popular_times 取坐標
+if ((lat === undefined || lng === undefined) && data.popular_times.length > 0) {
+lat = data.popular_times[0].coordinates?.lat;
+lng = data.popular_times[0].coordinates?.lng;
+}
+
+if (!lat || !lng) {
+resultDiv.innerHTML += `<br>⚠️ 沒有經緯度資料，地圖無法顯示`;
+return;
+}
+
+console.log("📌 經緯度：", lat, lng);
+
+// 更新地圖視角與標記
+map.setView([lat, lng], 17);
+
+if (marker) {
+marker.setLatLng([lat, lng]).setPopupContent(q).openPopup();
+} else {
+marker = L.marker([lat, lng]).addTo(map).bindPopup(q).openPopup();
+}
+
+} catch (e) {
+console.error("❌ 錯誤：", e);
+resultDiv.innerHTML = "❌ 查詢失敗：" + e.message;
+}
+}
+</script>
+
+</body>
+</html>
