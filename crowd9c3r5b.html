@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>即時人流查詢 crowd9c3r2_fixed</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; background: #f2f2f2; }
+input, button { padding: 8px; font-size: 16px; margin: 5px 0; }
+#result { margin-top: 20px; white-space: pre-wrap; background: #fff; padding: 15px; border-radius: 6px; border: 1px solid #ccc; }
+#map { height: 300px; margin-top: 20px; display: none; border-radius: 6px; border: 1px solid #ccc; }
+</style>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+
+<h2>📍 即時人流查詢</h2>
+
+<input type="text" id="queryInput" placeholder="請輸入地點名稱" size="30">
+<button onclick="startQuery()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+document.getElementById("queryInput").addEventListener("keydown", function(event) {
+if (event.key === "Enter") {
+event.preventDefault();
+startQuery();
+}
+});
+
+let map, marker;
+
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+for (let attempt = 1; attempt <= retries; attempt++) {
+try {
+const res = await fetch("https://shrill-sun-5f8c.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+if (!res.ok) throw new Error("HTTP error " + res.status);
+const data = await res.json();
+if (!data.success) throw new Error(data.message || "未知錯誤");
+return data;
+} catch (e) {
+if (attempt === retries) throw e;
+await new Promise(resolve => setTimeout(resolve, delay));
+}
+}
+}
+
+async function startQuery() {
+const query = document.getElementById("queryInput").value.trim();
+const resultDiv = document.getElementById("result");
+const mapDiv = document.getElementById("map");
+
+if (!query) {
+resultDiv.textContent = "❗ 請輸入地點名稱";
+mapDiv.style.display = "none";
+return;
+}
+
+resultDiv.textContent = "⏳ 正在查詢中，請稍候...";
+mapDiv.style.display = "none";
+
+try {
+const data = await fetchWithRetry(query);
+console.log("✅ API 回傳：", data);
+
+const locationData = data.location || {};
+console.log("📌 經緯度資料結構：", locationData);
+
+const lat = locationData.lat ?? 0;
+const lng = locationData.lng ?? 0;
+console.log("📌 經緯度：", lat, lng);
+
+let label = "❓ 無即時人流資料";
+let liveItem = Array.isArray(data.popular_times)
+? data.popular_times.find(d => d.day === "live")
+: null;
+
+if (liveItem && typeof liveItem.percentage === "number") {
+if (liveItem.percentage >= 80) label = "🔴 非常繁忙";
+else if (liveItem.percentage >= 20) label = "🟡 正常";
+else label = "🟢 偏少";
+
+resultDiv.textContent = `📍 查詢地點：${query}\n👥 現時人流：${label}（${liveItem.percentage}%）`;
+} else {
+const now = new Date();
+const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+const currentHour = now.getHours();
+const todayData = data.popular_times?.find(d => d.day_text === todayName);
+
+const fallback = todayData?.popular_times
+?.filter(h => h.hour <= currentHour)
+?.sort((a, b) => b.hour - a.hour)[0];
+
+if (fallback) {
+if (fallback.percentage >= 80) label = "🔴 非常繁忙";
+else if (fallback.percentage >= 20) label = "🟡 正常";
+else label = "🟢 偏少";
+
+resultDiv.textContent = `📍 查詢地點：${query}\n👥 推算人流：${label}（${fallback.percentage}%）`;
+} else {
+resultDiv.textContent = "⚠️ 沒有找到人流資料。";
+}
+}
+
+if (lat !== 0 && lng !== 0) {
+mapDiv.style.display = "block";
+setTimeout(() => {
+if (!map) {
+map = L.map("map").setView([lat, lng], 16);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+attribution: '© OpenStreetMap'
+}).addTo(map);
+marker = L.marker([lat, lng]).addTo(map).bindPopup(query).openPopup();
+} else {
+map.setView([lat, lng], 16);
+marker.setLatLng([lat, lng]).setPopupContent(query).openPopup();
+}
+map.invalidateSize();
+}, 100);
+} else {
+resultDiv.textContent += "\n⚠️ 沒有經緯度資料，地圖不顯示";
+mapDiv.style.display = "none";
+}
+
+} catch (err) {
+console.error("❌ 查詢錯誤：", err);
+resultDiv.textContent = "⚠️ 查詢失敗或未有資料";
+mapDiv.style.display = "none";
+}
+}
+</script>
+
+</body>
+</html>
