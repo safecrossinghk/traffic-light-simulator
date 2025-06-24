@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>實時人流查詢</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body {
+font-family: sans-serif;
+padding: 10px;
+font-size: 18px;
+line-height: 1.6;
+}
+#map {
+height: 300px;
+margin-top: 10px;
+}
+input, button {
+font-size: 18px;
+padding: 6px;
+margin: 5px 0;
+}
+#status {
+margin-top: 10px;
+font-weight: bold;
+}
+</style>
+</head>
+<body>
+<h2>📍 實時人流查詢</h2>
+<input id="queryInput" type="text" placeholder="請輸入地點，例如：香港國際機場" />
+<button onclick="search()">查詢</button>
+<div id="status"></div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+let map;
+
+async function search() {
+const query = document.getElementById("queryInput").value.trim();
+if (!query) {
+alert("請輸入地點名稱");
+return;
+}
+
+document.getElementById("status").innerText = "🔄 查詢中…";
+
+try {
+const res = await fetch(`https://round-bonus-0273.ctakwah.workers.dev/?query=${encodeURIComponent(query)}`);
+if (!res.ok) throw new Error("查詢失敗");
+
+const data = await res.json();
+
+if (!data.success) {
+document.getElementById("status").innerText = `❌ ${data.message || "找不到資料"}`;
+speak(`找不到 ${query} 的人流資訊`);
+return;
+}
+
+const { query_used, location, popular_times } = data;
+const now = new Date();
+const hour = now.getHours();
+const weekday = now.getDay(); // Sunday = 0
+const dayIndex = weekday === 0 ? 6 : weekday - 1; // Convert to Monday = 0
+const hourData = popular_times?.[dayIndex]?.data || [];
+const level = hourData[hour];
+
+document.getElementById("status").innerText = `📍 ${query_used}：目前人流約為 ${level ?? "未知"}%`;
+speak(`${query_used} 現在人流大約 ${level ?? "未知"}%`);
+
+if (location?.lat && location?.lng) {
+if (!map) {
+map = L.map("map").setView([location.lat, location.lng], 16);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+attribution: '© OpenStreetMap',
+}).addTo(map);
+} else {
+map.setView([location.lat, location.lng], 16);
+}
+L.marker([location.lat, location.lng]).addTo(map).bindPopup(query_used).openPopup();
+}
+} catch (e) {
+console.error(e);
+document.getElementById("status").innerText = "❗ 無法查詢人流，請稍後再試";
+speak("無法查詢人流資料");
+}
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+}
+
+// ✅ 頁面一開自動查「香港國際機場」
+window.onload = () => {
+document.getElementById("queryInput").value = "香港國際機場";
+search();
+};
+</script>
+</body>
+</html>
