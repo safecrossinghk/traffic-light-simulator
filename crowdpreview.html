@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>即時人流查詢</title>
+<style>
+body { font-family: "PingFang TC", sans-serif; padding: 20px; background: #fff; }
+input, button { font-size: 16px; margin-top: 10px; padding: 8px; }
+#result, #forecast { margin-top: 20px; border: 1px solid #ccc; padding: 10px; border-radius: 8px; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢</h2>
+<input id="placeInput" type="text" placeholder="請輸入地點名稱" />
+<br/>
+<button onclick="queryNow()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+<div id="forecast" style="display:none;"></div>
+
+<script>
+function queryNow() {
+const place = document.getElementById("placeInput").value;
+if (!place) {
+alert("請輸入地點！");
+return;
+}
+
+// 模擬即時人流（假數據）
+document.getElementById("result").innerHTML = `
+<b>${place}</b> 即時人流為 🟠 偏多（72%）<br/>
+<button onclick="showForecast('${place}')">📈 查看未來 3 小時預測</button>
+`;
+document.getElementById("forecast").style.display = "none";
+}
+
+function showForecast(place) {
+const forecastHTML = `
+<b>${place}</b> 未來預測：
+<ul>
+<li>1 小時後：🟠 偏多（68%）</li>
+<li>2 小時後：🟢 較少（54%）</li>
+<li>3 小時後：🟢 較少（42%）</li>
+</ul>
+<button onclick="speakForecast('粵', '${place}')">🔊 粵語語音</button>
+<button onclick="speakForecast('英', '${place}')">🔊 English Voice</button>
+`;
+document.getElementById("forecast").innerHTML = forecastHTML;
+document.getElementById("forecast").style.display = "block";
+}
+
+function speakForecast(lang, place) {
+const msg = new SpeechSynthesisUtterance();
+if (lang === '粵') {
+msg.text = `${place} 未來三小時人流會逐步減少，由偏多變成較少。`;
+msg.lang = 'zh-HK';
+} else {
+msg.text = `Crowd at ${place} is expected to become lighter over the next three hours.`;
+msg.lang = 'en-US';
+}
+speechSynthesis.speak(msg);
+}
+</script>
+</body>
+</html>
