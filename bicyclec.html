@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>大圍至大埔單車徑導航地圖</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+html, body { height: 100%; margin: 0; padding: 0; font-family: sans-serif; }
+#map { height: 80%; width: 100%; }
+#info { padding: 10px; text-align: center; }
+.segment { margin: 5px 0; }
+.green { color: green; }
+.yellow { color: orange; }
+.red { color: red; }
+button { margin: 5px; padding: 8px 12px; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div id="info">
+<button onclick="speakRoute()">語音提示 / Voice Alert</button>
+<button onclick="manualUpdate()">手動更新路況 / Manual Update</button>
+<div id="segments"></div>
+</div>
+
+<script>
+let map, directionsService, directionsRenderer;
+let routeSegments = [];
+
+function initMap() {
+map = new google.maps.Map(document.getElementById("map"), {
+zoom: 13,
+center: { lat: 22.3775, lng: 114.1928 },
+mapTypeId: "roadmap"
+});
+
+directionsService = new google.maps.DirectionsService();
+directionsRenderer = new google.maps.DirectionsRenderer({ map: map });
+
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition((position) => {
+const current = {
+lat: position.coords.latitude,
+lng: position.coords.longitude,
+};
+calculateRoute(current);
+}, () => {
+fallbackRoute();
+});
+} else {
+fallbackRoute();
+}
+
+fetchAndUpdate();
+setInterval(fetchAndUpdate, 300000); // 每 5 分鐘自動更新
+}
+
+function fallbackRoute() {
+const start = { lat: 22.3775, lng: 114.1928 };
+calculateRoute(start);
+}
+
+function calculateRoute(startLocation) {
+const end = { lat: 22.4475, lng: 114.1686 };
+directionsService.route({
+origin: startLocation,
+destination: end,
+travelMode: 'BICYCLING'
+}, (response, status) => {
+if (status === 'OK') {
+directionsRenderer.setDirections(response);
+}
+});
+}
+
+function speakRoute() {
+const synth = window.speechSynthesis;
+const langOptions = [
+{ lang: 'zh-HK', label: '（粵語）' },
+{ lang: 'en-US', label: '(English)' }
+];
+routeSegments.forEach(seg => {
+langOptions.forEach(option => {
+const msg = new SpeechSynthesisUtterance();
+if (option.lang === 'en-US') {
+msg.text = `Segment ${seg.name}, current condition is ${seg.status}`;
+} else {
+let statusText = seg.status === 'green' ? '順暢' : seg.status === 'yellow' ? '較擠塞' : '擠塞';
+msg.text = `路段 ${seg.name}，目前狀態：${statusText}`;
+}
+msg.lang = option.lang;
+synth.speak(msg);
+});
+});
+}
+
+function updateSegmentsDisplay() {
+const container = document.getElementById("segments");
+container.innerHTML = "";
+routeSegments.forEach(seg => {
+const div = document.createElement("div");
+div.className = "segment " + seg.status;
+let label = seg.status === "green" ? "🟢 順暢" : seg.status === "yellow" ? "🟡 較擠塞" : "🔴 擠塞";
+div.textContent = seg.name + " ➝ " + label;
+container.appendChild(div);
+});
+}
+
+function manualUpdate() {
+fetchAndUpdate();
+}
+
+function fetchAndUpdate() {
+fetch("https://example.com/bikeroute_status.json") // <--- 修改成你的實際 JSON 路徑
+.then(res => res.json())
+.then(data => {
+routeSegments = data.segments;
+updateSegmentsDisplay();
+})
+.catch(err => {
+console.error("無法讀取模擬資料：", err);
+});
+}
+</script>
+
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyC5EiwICC0wjVsscauKVrHhlA8tDMG1jPY&callback=initMap&libraries=places">
+</script>
+</body>
+</html>
