@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍即時及預計人流查詢</title>
+<style>
+body { font-family: Arial, sans-serif; text-align: center; padding: 20px; }
+input, button { font-size: 1.2em; margin: 5px; }
+#result, #forecast, #error { margin-top: 20px; white-space: pre-wrap; font-size: 1.1em; }
+#result { color: green; }
+#error { color: red; }
+</style>
+</head>
+<body>
+<h2>📍即時及預計人流查詢</h2>
+<input id="place" type="text" placeholder="請輸入地點名稱，例如 旺角朗豪坊">
+<button onclick="doQuery()">查詢</button>
+
+<div id="result"></div>
+<div id="forecast"></div>
+<div id="error"></div>
+
+<script>
+async function doQuery() {
+const place = document.getElementById('place').value.trim();
+document.getElementById('result').textContent = '';
+document.getElementById('forecast').textContent = '';
+document.getElementById('error').textContent = '';
+
+if (!place) {
+document.getElementById('error').textContent = '❌ 請輸入地點名稱。';
+return;
+}
+
+try {
+const res = await fetch(`https://sweet-credit-68c9.ctakwah.workers.dev/?query=${encodeURIComponent(place)}`);
+const data = await res.json();
+
+if (!data.success) {
+document.getElementById('error').textContent = `❌ 查詢錯誤：${data.message || '未知錯誤'}`;
+return;
+}
+
+const now = data.popular_times.find(p => p.day === 'live');
+const future = data.popular_times.filter(p => p.day && p.hour !== undefined && p.day !== 'live');
+
+let msg = `✅ 地點：${place}（查詢：${data.query}）\n`;
+if (now) {
+msg += `\n📌 現時人流：${now.value}%`;
+document.getElementById('result').textContent = msg;
+}
+
+if (future.length > 0) {
+let forecastMsg = '\n📅 預測人流時段：\n';
+for (let i = 0; i < Math.min(future.length, 6); i++) {
+const f = future[i];
+forecastMsg += `🕒 ${f.day} ${f.hour}:00 ➜ ${f.value}%\n`;
+}
+document.getElementById('forecast').textContent = forecastMsg;
+}
+
+if (!now && future.length === 0) {
+document.getElementById('error').textContent = '⚠️ 未有此地點的人流資料。';
+}
+
+} catch (e) {
+document.getElementById('error').textContent = `❌ 系統錯誤：${e.message}`;
+}
+}
+</script>
+</body>
+</html>
