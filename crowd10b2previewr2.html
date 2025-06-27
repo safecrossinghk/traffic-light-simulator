@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>📍即時及預計人流查詢</title>
+<style>
+body { font-family: sans-serif; text-align: center; padding: 2em; }
+input, button { padding: 0.5em; font-size: 1em; }
+#result, #forecast, #error { margin-top: 1em; font-size: 1.1em; }
+#error { color: red; }
+</style>
+</head>
+<body>
+<h2>📍即時及預計人流查詢</h2>
+<input id="place" type="text" placeholder="例如：旺角地鐵站" size="30" />
+<button onclick="query()">查詢</button>
+<div id="result"></div>
+<div id="forecast"></div>
+<div id="error"></div>
+
+<script>
+async function query() {
+const place = document.getElementById('place').value.trim();
+const resultDiv = document.getElementById('result');
+const forecastDiv = document.getElementById('forecast');
+const errorDiv = document.getElementById('error');
+resultDiv.textContent = '';
+forecastDiv.textContent = '';
+errorDiv.textContent = '';
+
+if (!place) {
+errorDiv.textContent = '⚠️ 請輸入查詢地點。';
+return;
+}
+
+try {
+const res = await fetch(`https://sweet-credit-68c9.ctakwah.workers.dev/?query=${encodeURIComponent(place)}`);
+const data = await res.json();
+
+if (!data.success) {
+errorDiv.textContent = '❌ 查詢失敗：' + (data.message || '伺服器錯誤');
+return;
+}
+
+// ✅ 即時人流
+const live = data.popular_times.find(x => x.day === 'live');
+if (live) {
+resultDiv.textContent = `${place}：現時人流為 ${live.hour}%`;
+speak(`${place} 現時人流為 ${live.hour} 百分比`, 'zh-HK');
+} else {
+resultDiv.textContent = `${place}：未有即時人流資料`;
+}
+
+// ✅ 預測人流（未來 3 小時）
+const now = new Date();
+const weekday = now.getDay(); // 0 = Sunday
+const currentHour = now.getHours();
+const weekDays = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const dayName = weekDays[weekday];
+const forecast = data.popular_times.find(x => x.day === dayName);
+
+if (forecast) {
+let forecastHTML = `<br><strong>預測人流（${dayName}）</strong><br>`;
+for (let i = 0; i < 3; i++) {
+const hour = (currentHour + i + 1) % 24;
+const value = forecast.data[hour];
+forecastHTML += `${hour}:00 ➜ ${value}%<br>`;
+}
+forecastDiv.innerHTML = forecastHTML;
+speak(`${place} 未來三小時預測人流為：${forecast.data[(currentHour+1)%24]}%、${forecast.data[(currentHour+2)%24]}%、${forecast.data[(currentHour+3)%24]}%。`, 'zh-HK');
+} else {
+forecastDiv.textContent = '未能取得預測資料';
+}
+
+} catch (err) {
+errorDiv.textContent = '❌ 錯誤：' + err.message;
+}
+}
+
+function speak(text, lang) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = lang || 'zh-HK';
+window.speechSynthesis.speak(msg);
+}
+</script>
+</body>
+</html>
