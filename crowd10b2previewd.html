@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>📍 即時人流預測（示範）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body { font-family: sans-serif; padding: 1em; }
+input, button { font-size: 1em; padding: 0.5em; }
+.busy { color: red; font-weight: bold; }
+.normal { color: green; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流預測（示範）</h2>
+<input type="text" id="queryInput" placeholder="輸入地點名稱（如 Times Square）">
+<button onclick="query()">查詢</button>
+<div id="result" style="margin-top: 1em;"></div>
+
+<script>
+let latestData = null; // 儲存最近一次的 API 回傳資料
+
+async function query() {
+const q = document.getElementById('queryInput').value.trim();
+if (!q) return alert("請輸入地點名稱");
+document.getElementById('result').innerHTML = '⏳ 查詢中...';
+
+try {
+const res = await fetch(`https://crowd-status-query.aiworker.workers.dev/?q=${encodeURIComponent(q)}`);
+const data = await res.json();
+latestData = data;
+
+if (!data || !data.populartimes || !data.populartimes.length) {
+throw new Error("找不到人流資料");
+}
+
+const now = new Date();
+const currentDay = now.getDay();
+const currentHour = now.getHours();
+
+const todayData = data.populartimes.find(p => p.name.toLowerCase() === getWeekdayName(currentDay).toLowerCase());
+if (!todayData) throw new Error("找不到今天的人流資料");
+
+const percentage = todayData.data[currentHour];
+const label = percentage >= 70 ? '繁忙' : (percentage >= 40 ? '中等' : '暢順');
+
+const resultDiv = document.getElementById('result');
+resultDiv.innerHTML = `
+📌 查詢地點：${q}<br>
+👥 現時人流：<span class="${percentage >= 70 ? 'busy' : 'normal'}">${label}（約 ${percentage}%）</span><br><br>
+<button onclick="showForecast('${q}')">📈 查看未來 3 小時預測</button>
+`;
+} catch (e) {
+console.error(e);
+document.getElementById('result').innerHTML = '⚠️ 無法取得資料，請稍後再試。';
+}
+}
+
+function getWeekdayName(dayIndex) {
+const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+return days[dayIndex];
+}
+
+function showForecast(place) {
+try {
+const data = latestData;
+if (!data || !data.populartimes) throw new Error("沒有可用的預測資料");
+
+const now = new Date();
+const currentDay = now.getDay();
+const currentHour = now.getHours();
+
+const todayData = data.populartimes.find(p => p.name.toLowerCase() === getWeekdayName(currentDay).toLowerCase());
+if (!todayData) throw new Error("無法找到今日人流預測");
+
+let forecastHTML = `<strong>📈 ${place} 未來 3 小時人流預測：</strong><br>`;
+for (let i = 1; i <= 3; i++) {
+const hour = (currentHour + i) % 24;
+const percentage = todayData.data[hour];
+const label = percentage >= 70 ? '繁忙' : (percentage >= 40 ? '中等' : '暢順');
+forecastHTML += `🕒 ${hour}:00 - <span class="${percentage >= 70 ? 'busy' : 'normal'}">${label}（約 ${percentage}%）</span><br>`;
+}
+
+document.getElementById('result').innerHTML += `<br>${forecastHTML}`;
+} catch (e) {
+alert("⚠️ 無法顯示預測資料");
+console.error(e);
+}
+}
+</script>
+</body>
+</html>
