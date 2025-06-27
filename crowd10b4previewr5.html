@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>旺角人流預測</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 1em;
+      background: #f9f9f9;
+    }
+    .location {
+      font-size: 1.5em;
+      margin-bottom: 0.5em;
+    }
+    .status {
+      font-size: 1.2em;
+      margin-bottom: 1em;
+    }
+    .forecast {
+      background: #fff;
+      border-radius: 6px;
+      padding: 1em;
+      box-shadow: 0 0 5px rgba(0,0,0,0.1);
+    }
+    .forecast-item {
+      margin-bottom: 0.5em;
+    }
+    .error {
+      color: red;
+      margin-top: 1em;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="location">📍 旺角朗豪坊</div>
+  <div class="status" id="status">正在載入人流預測...</div>
+
+  <div class="forecast" id="forecast" style="display:none;"></div>
+  <div class="error" id="error" style="display:none;"></div>
+
+  <script>
+    const query = "旺角朗豪坊";
+    const endpoint = "https://sweet-credit-68c9.ctakwah.workers.dev/?query=" + encodeURIComponent(query);
+
+    fetch(endpoint)
+      .then(res => res.json())
+      .then(data => {
+        if (data.success && data.forecast?.length > 0) {
+          document.getElementById('status').innerText = "未來三小時人流預測：";
+          const container = document.getElementById('forecast');
+          container.style.display = 'block';
+          container.innerHTML = '';
+
+          data.forecast.forEach(item => {
+            const hourLabel = `${item.hour}:00`;
+            const perc = item.percentage;
+            const div = document.createElement('div');
+            div.className = "forecast-item";
+            div.innerText = `${hourLabel} ➜ ${perc}%`;
+            container.appendChild(div);
+          });
+
+        } else {
+          document.getElementById('status').innerText = "找不到人流預測資料";
+        }
+      })
+      .catch(err => {
+        document.getElementById('status').innerText = "載入失敗";
+        document.getElementById('error').style.display = "block";
+        document.getElementById('error').innerText = "查詢錯誤：" + err.message;
+      });
+  </script>
+</body>
+</html>
