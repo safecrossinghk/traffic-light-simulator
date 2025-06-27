@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時及預計人流查詢</title>
+<style>
+body {
+font-family: Arial, sans-serif;
+text-align: center;
+padding: 30px;
+}
+input {
+padding: 10px;
+width: 300px;
+}
+button {
+padding: 10px 20px;
+margin-left: 10px;
+}
+.result {
+margin-top: 30px;
+font-size: 1.2em;
+}
+.error {
+color: red;
+}
+</style>
+</head>
+<body>
+<h2>📍 即時及預計人流查詢</h2>
+<input type="text" id="place" placeholder="香港國際機場, 太古城中心..." />
+<button onclick="doQuery()">查詢</button>
+
+<div class="result">
+<p id="realtime"></p>
+<p id="forecast"></p>
+<p id="error" class="error"></p>
+</div>
+
+<script>
+async function doQuery() {
+const place = document.getElementById("place").value.trim();
+const rt = document.getElementById("realtime");
+const fc = document.getElementById("forecast");
+const err = document.getElementById("error");
+
+rt.textContent = '';
+fc.textContent = '';
+err.textContent = '';
+
+if (!place) {
+err.textContent = "❌ 請輸入查詢地點";
+return;
+}
+
+try {
+// Call Cloudflare Worker API
+const response = await fetch(`https://sweet-credit-68c9.ctakwah.workers.dev/?query=${encodeURIComponent(place)}`);
+const data = await response.json();
+
+if (data.error) {
+throw new Error(data.errorMessage || "API 錯誤");
+}
+
+// 顯示即時人流
+rt.textContent = `✅ 即時人流狀況：${data.query} ➝ ${data.popular_times?.live || '無數據'}`;
+
+// 顯示預計（下 1 小時）人流（根據日期 + 時間篩選）
+const now = new Date();
+const hour = now.getHours() + 1; // 預測下 1 小時
+const weekday = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][now.getDay()];
+
+const nextHour = data.popular_times?.[weekday]?.find(x => x.x === hour);
+
+if (nextHour) {
+fc.textContent = `🕐 預計 ${hour}:00 人流：${nextHour.y}（單位：Outscraper 評估值）`;
+} else {
+fc.textContent = "🔍 未有下一小時的預測數據";
+}
+} catch (e) {
+err.textContent = `❌ 查詢失敗：${e.message}`;
+}
+}
+</script>
+</body>
+</html>
