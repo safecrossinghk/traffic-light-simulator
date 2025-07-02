@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>即時人流預測（五地點）</title>
+<style>
+body { font-family: sans-serif; background: #f7f7f7; padding: 20px; }
+.location { background: white; border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px; }
+.name { font-weight: bold; font-size: 18px; }
+.status { margin-top: 10px; font-size: 16px; }
+</style>
+</head>
+<body>
+<h2>即時人流預測（五地點）</h2>
+
+<div class="location" id="loc1">
+<div class="name">旺角朗豪坊</div>
+<div class="status">載入中...</div>
+</div>
+<div class="location" id="loc2">
+<div class="name">西九龍高鐵站</div>
+<div class="status">載入中...</div>
+</div>
+<div class="location" id="loc3">
+<div class="name">香港國際機場</div>
+<div class="status">載入中...</div>
+</div>
+<div class="location" id="loc4">
+<div class="name">金鐘廊</div>
+<div class="status">載入中...</div>
+</div>
+<div class="location" id="loc5">
+<div class="name">中環碼頭</div>
+<div class="status">載入中...</div>
+</div>
+
+<script>
+const locations = [
+{ name: "旺角朗豪坊", id: "loc1" },
+{ name: "西九龍高鐵站", id: "loc2" },
+{ name: "香港國際機場", id: "loc3" },
+{ name: "金鐘廊", id: "loc4" },
+{ name: "中環碼頭", id: "loc5" }
+];
+
+const endpoint = "https://safecrossing-worker.cloudflare.workers.dev/?query=";
+
+locations.forEach(loc => {
+fetch(endpoint + encodeURIComponent(loc.name))
+.then(res => res.json())
+.then(data => {
+const el = document.querySelector(`#${loc.id} .status`);
+const now = new Date();
+const dayIndex = now.getDay(); // 0 = Sunday
+const hour = now.getHours();
+const dayMap = [6, 0, 1, 2, 3, 4, 5]; // map Sunday (0) to 6, Monday to 0, etc.
+const todayData = data.popular_times?.[dayMap[dayIndex]];
+
+if (!data.popular_times || data.popular_times.length === 0) {
+el.innerHTML = "⚠️ 無法取得人流預測數據";
+} else if (!todayData || !todayData.data || typeof todayData.data[hour] !== "number") {
+el.innerHTML = "⚠️ 今日預測資料不完整";
+} else if (todayData.data[hour] === 0) {
+el.innerHTML = "✅ 地點營運已結束或目前無人流";
+} else {
+el.innerHTML = `📊 即時人流預測：${todayData.data[hour]}%`;
+}
+})
+.catch(err => {
+const el = document.querySelector(`#${loc.id} .status`);
+el.innerHTML = "⚠️ 查詢失敗";
+});
+});
+</script>
+</body>
+</html>
