@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+* { box-sizing: border-box; }
+body {
+margin: 0;
+font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+padding: 1em;
+background-color: #f8f9fa;
+}
+h2 {
+font-size: 1.5em;
+margin-bottom: 0.8em;
+text-align: center;
+color: #333;
+}
+label {
+font-size: 1em;
+display: block;
+margin-bottom: 0.3em;
+}
+input[type="text"] {
+width: 100%;
+padding: 0.8em;
+font-size: 1.1em;
+margin-bottom: 0.8em;
+border: 1px solid #ccc;
+border-radius: 5px;
+}
+button {
+width: 100%;
+padding: 1em;
+font-size: 1.1em;
+background-color: #007bff;
+color: white;
+border: none;
+border-radius: 5px;
+margin-bottom: 1em;
+}
+#result, #forecast {
+font-size: 1.1em;
+background-color: #fff;
+padding: 1em;
+border-radius: 5px;
+margin-bottom: 1em;
+box-shadow: 0 0 5px rgba(0, 0, 0, 0.05);
+}
+#map {
+width: 100%;
+height: 60vh;
+border-radius: 10px;
+overflow: hidden;
+}
+.busy { color: red; font-weight: bold; }
+.normal { color: green; font-weight: bold; }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+
+<h2>📍 即時人流查詢</h2>
+<label>查詢地點關鍵字：</label>
+<input id="keyword" type="text" placeholder="例如：香港國際機場" />
+<button onclick="query()">查詢</button>
+
+<div id="result">🔍 等待輸入查詢...</div>
+<div id="forecast"></div>
+<div id="map"></div>
+
+<script>
+let map;
+
+document.getElementById("keyword").addEventListener("keydown", function (event) {
+if (event.key === "Enter") {
+event.preventDefault();
+query();
+}
+});
+
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+for (let attempt = 1; attempt <= retries; attempt++) {
+try {
+const res = await fetch("https://tiny-disk-0d7b.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+if (!res.ok) throw new Error("HTTP error " + res.status);
+const data = await res.json();
+if (!data.success) throw new Error(data.message || "未知錯誤");
+return data;
+} catch (e) {
+if (attempt === retries) throw e;
+await new Promise(resolve => setTimeout(resolve, delay));
+}
+}
+}
+
+async function query() {
+const q = document.getElementById("keyword").value.trim();
+const resultDiv = document.getElementById("result");
+const forecastDiv = document.getElementById("forecast");
+forecastDiv.innerHTML = "";
+resultDiv.textContent = "⏳ 正在查詢中，請稍候...";
+document.getElementById("map").innerHTML = "";
+
+if (!q) {
+resultDiv.textContent = "❗ 請輸入查詢地點。";
+return;
+}
+
+try {
+const data = await fetchWithRetry(q, 3);
+console.log("✅ API 回傳：", data);
+
+let percentage = null;
+if (Array.isArray(data.popular_times)) {
+const liveItem = data.popular_times.find(d => d.day === "live");
+if (liveItem && typeof liveItem.percentage === "number") {
+percentage = liveItem.percentage;
+} else {
+const now = new Date();
+const todayName = now.toLocaleDateString("en-US", { weekday: "long" });
+const currentHour = now.getHours();
+const todayData = data.popular_times.find(d => d.day_text === todayName);
+if (todayData && Array.isArray(todayData.popular_times)) {
+const fallback = todayData.popular_times
+.filter(h => h.hour <= currentHour)
+.sort((a, b) => b.hour - a.hour)[0];
+if (fallback) percentage = fallback.percentage;
+}
+}
+}
+
+if (percentage === null) {
+resultDiv.textContent = "⚠️ 無法取得即時或歷史人流資料。";
+return;
+}
+
+let label = "🟢 偏少";
+if (percentage >= 80) label = "🔴 非常繁忙";
+else if (percentage >= 20) label = "🟡 正常";
+
+resultDiv.innerHTML = `📌 查詢地點：${q}<br>👥 現時人流：<span class="${percentage >= 70 ? 'busy' : 'normal'}">${label}（約 ${percentage}%）</span>`;
+
+const msg = new SpeechSynthesisUtterance(`${q} 現時人流：${label}`);
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+
+// 顯示地圖
+let lat = data.location?.lat;
+let lng = data.location?.lng;
+if ((lat === undefined || lng === undefined) && data.popular_times.length > 0) {
+lat = data.popular_times[0].coordinates?.lat;
+lng = data.popular_times[0].coordinates?.lng;
+}
+if (!lat || !lng) {
+const geoRes = await fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(q));
+const geoData = await geoRes.json();
+if (geoData.length > 0) {
+lat = parseFloat(geoData[0].lat);
+lng = parseFloat(geoData[0].lon);
+} else {
+resultDiv.innerHTML += `<br>⚠️ 無法取得經緯度資料，地圖無法顯示。`;
+return;
+}
+}
+if (map) map.remove();
+map = L.map("map").setView([lat, lng], 17);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19 }).addTo(map);
+L.marker([lat, lng]).addTo(map).bindPopup(q).openPopup();
+
+// 🔮 預測未來三小時人流（含錯誤處理與語音）
+const now = new Date();
+const hourNow = now.getHours();
+const weekdayIndex = now.getDay();
+const weekNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+const weekText = weekNames[weekdayIndex];
+const forecastData = data.popular_times.find(x => x.day === weekText || x.day_text === weekText);
+
+if (!forecastData || !Array.isArray(forecastData.popular_times)) {
+forecastDiv.innerHTML = "⚠️ 無法取得預測資料。";
+return;
+}
+
+const forecastHours = [];
+let missingData = false;
+let allZero = true;
+
+for (let i = 1; i <= 3; i++) {
+const hour = (hourNow + i) % 24;
+const hourData = forecastData.popular_times.find(h => h.hour === hour);
+if (!hourData || typeof hourData.percentage !== "number") {
+missingData = true;
+forecastHours.push({ hour, value: "N/A" });
+} else {
+if (hourData.percentage > 0) allZero = false;
+forecastHours.push({ hour, value: hourData.percentage });
+}
+}
+
+if (missingData) {
+forecastDiv.innerHTML = "⚠️ 今日預測資料不完整。";
+return;
+}
+
+if (allZero) {
+forecastDiv.innerHTML = "✅ 地點營運已結束或目前無人流。";
+return;
+}
+
+let forecastHTML = `<strong>📈 未來三小時人流預測：</strong><br>`;
+let forecastValues = [];
+
+for (const item of forecastHours) {
+forecastHTML += `${item.hour}:00 ➜ ${item.value}%<br>`;
+forecastValues.push(item.value);
+}
+
+forecastDiv.innerHTML = forecastHTML;
+
+const forecastMsg = new SpeechSynthesisUtterance(`${q} 未來三小時預測人流為：${forecastValues.join("%、")}%。`);
+forecastMsg.lang = "zh-HK";
+speechSynthesis.speak(forecastMsg);
+
+} catch (e) {
+console.error("❌ 查詢失敗：", e);
+resultDiv.textContent = "❌ 查詢失敗：" + e.message;
+}
+}
+</script>
+
+</body>
+</html>
