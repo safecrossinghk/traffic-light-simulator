@@ -1,0 +1,162 @@
+<!-- crowd10b2-ai.html：使用 AI 模擬預測 -->
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>📍 即時人流查詢 + AI 預測</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+body {
+font-family: "PingFang TC", "Microsoft JhengHei", sans-serif;
+padding: 1em;
+background: #f8f9fa;
+}
+h2 { text-align: center; }
+input, button {
+width: 100%; font-size: 1em;
+margin-bottom: 1em; padding: 0.8em;
+border-radius: 5px;
+}
+button { background: #007bff; color: white; border: none; }
+#result { background: white; padding: 1em; border-radius: 6px; }
+.busy { color: red; font-weight: bold; }
+.normal { color: green; font-weight: bold; }
+#map { width: 100%; height: 60vh; margin-top: 1em; border-radius: 10px; }
+</style>
+</head>
+<body>
+<h2>📍 即時人流查詢 + AI 預測</h2>
+<input id="keyword" type="text" placeholder="輸入地點，例如：旺角朗豪坊" />
+<button onclick="query()">查詢</button>
+<div id="result">🔍 等待輸入查詢...</div>
+<div id="map"></div>
+
+<script>
+let map;
+
+document.getElementById("keyword").addEventListener("keydown", function (e) {
+if (e.key === "Enter") query();
+});
+
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+for (let i = 0; i < retries; i++) {
+try {
+const res = await fetch("https://tiny-disk-0d7b.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+const data = await res.json();
+if (!data.success) throw new Error(data.message || "查詢錯誤");
+return data;
+} catch (e) {
+if (i === retries - 1) throw e;
+await new Promise(r => setTimeout(r, delay));
+}
+}
+}
+
+function getLabel(percentage) {
+if (percentage >= 80) return "🔴 非常繁忙";
+if (percentage >= 30) return "🟡 正常";
+return "🟢 偏少";
+}
+
+function aiPredict(current) {
+const preds = [];
+let val = current;
+for (let i = 1; i <= 3; i++) {
+if (val <= 30) val += 10;
+else if (val > 70) val -= 10;
+else val += Math.random() > 0.5 ? 5 : -5;
+val = Math.min(Math.max(Math.round(val), 0), 100);
+preds.push(val);
+}
+return preds;
+}
+
+async function query() {
+const keyword = document.getElementById("keyword").value.trim();
+const resultDiv = document.getElementById("result");
+if (!keyword) {
+resultDiv.innerHTML = "⚠️ 請輸入地點關鍵字。";
+return;
+}
+resultDiv.innerHTML = "⏳ 正在查詢中...";
+
+try {
+const data = await fetchWithRetry(keyword);
+const now = new Date();
+const hour = now.getHours();
+const today = now.toLocaleDateString("en-US", { weekday: "long" });
+
+// 即時人流百分比
+let percentage = null;
+const live = data.popular_times.find(d => d.day === "live");
+if (live?.percentage !== undefined) {
+percentage = live.percentage;
+} else {
+const fallback = data.popular_times.find(d => d.day_text === today);
+if (fallback) {
+const hourData = fallback.popular_times.find(h => h.hour === hour);
+if (hourData) percentage = hourData.percentage;
+}
+}
+
+if (percentage === null) {
+resultDiv.innerHTML = "⚠️ 無法取得人流資料。";
+return;
+}
+
+const label = getLabel(percentage);
+resultDiv.innerHTML = `📌 地點：${keyword}<br>👥 現時人流：<span class="${percentage > 70 ? 'busy' : 'normal'}">${label}（約 ${percentage}%）</span>`;
+
+const msg = new SpeechSynthesisUtterance(`${keyword} 現時人流：${label}`);
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+
+// AI 模擬預測
+const predictions = aiPredict(percentage);
+let forecastText = "<br><br>📈 <b>AI 預測未來 3 小時人流：</b><ul>";
+let speakText = "預測：";
+for (let i = 0; i < predictions.length; i++) {
+const h = hour + i + 1;
+forecastText += `<li>${h}:00 → ${predictions[i]}%</li>`;
+speakText += `${h}點 ${predictions[i]}%、`;
+}
+forecastText += "</ul>";
+resultDiv.innerHTML += forecastText;
+
+const forecastMsg = new SpeechSynthesisUtterance(speakText);
+forecastMsg.lang = "zh-HK";
+speechSynthesis.speak(forecastMsg);
+
+// 地圖處理
+let lat = data.location?.lat;
+let lng = data.location?.lng;
+if (!lat || !lng) {
+const geo = await fetch("https://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(keyword));
+const geoJson = await geo.json();
+if (geoJson.length > 0) {
+lat = parseFloat(geoJson[0].lat);
+lng = parseFloat(geoJson[0].lon);
+}
+}
+
+if (lat && lng) {
+if (map) map.remove();
+map = L.map("map").setView([lat, lng], 17);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+maxZoom: 19
+}).addTo(map);
+L.marker([lat, lng]).addTo(map).bindPopup(keyword).openPopup();
+} else {
+resultDiv.innerHTML += "<br>⚠️ 找不到地圖位置。";
+}
+
+} catch (err) {
+console.error(err);
+resultDiv.innerHTML = "❌ 查詢錯誤：" + err.message;
+}
+}
+</script>
+</body>
+</html>
