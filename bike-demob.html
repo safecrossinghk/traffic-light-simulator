@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>單車導航：大圍 ➝ 大埔海濱公園</title>
+<meta charset="utf-8" />
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 13,
+center: { lat: 22.412, lng: 114.176 }, // 地圖中心點
+});
+
+const directionsService = new google.maps.DirectionsService();
+const directionsRenderer = new google.maps.DirectionsRenderer({
+map: map,
+});
+
+directionsService.route(
+{
+origin: { lat: 22.374614, lng: 114.180708 }, // 大圍單車徑起點
+destination: { lat: 22.450283, lng: 114.171316 }, // 大埔海濱公園單車徑出口
+travelMode: google.maps.TravelMode.BICYCLING,
+},
+(response, status) => {
+if (status === "OK") {
+directionsRenderer.setDirections(response);
+} else {
+alert("路線產生失敗：" + status);
+}
+}
+);
+}
+</script>
+
+<script async
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU&callback=initMap">
+</script>
+</body>
+</html>
