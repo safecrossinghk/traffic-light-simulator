@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>大圍 ➝ 大埔 單車徑模擬（步行模式）</title>
+<meta charset="utf-8" />
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 13,
+center: { lat: 22.412, lng: 114.18 }, // 中心點設在新界中部
+});
+
+const directionsService = new google.maps.DirectionsService();
+const directionsRenderer = new google.maps.DirectionsRenderer({
+map: map,
+});
+
+const request = {
+origin: { lat: 22.374614, lng: 114.180708 }, // 大圍站
+destination: { lat: 22.450283, lng: 114.171316 }, // 大埔海濱公園
+travelMode: google.maps.TravelMode.WALKING // 步行模式代替 BICYCLING
+};
+
+directionsService.route(request, function (result, status) {
+if (status === "OK") {
+directionsRenderer.setDirections(result);
+} else {
+alert("路線查詢失敗: " + status);
+}
+});
+}
+</script>
+
+<script
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU&callback=initMap"
+async
+defer
+></script>
+</body>
+</html>
