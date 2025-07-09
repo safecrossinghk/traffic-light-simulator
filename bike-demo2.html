@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>大圍 ➝ 大埔單車徑示範</title>
+<meta charset="utf-8" />
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 13,
+center: { lat: 22.3835, lng: 114.1917 }, // 沙田中部
+});
+
+// 起點與終點標記
+const start = new google.maps.Marker({
+position: { lat: 22.3721, lng: 114.1825 }, // 大圍站
+map,
+label: "起",
+title: "大圍站",
+});
+
+const end = new google.maps.Marker({
+position: { lat: 22.4475, lng: 114.1732 }, // 大埔海濱公園
+map,
+label: "終",
+title: "大埔海濱公園",
+});
+
+// Polyline 單車徑（大致手動勾畫）
+const bikePath = new google.maps.Polyline({
+path: [
+{ lat: 22.3721, lng: 114.1825 }, // 大圍站
+{ lat: 22.3759, lng: 114.1842 },
+{ lat: 22.3805, lng: 114.1863 }, // 美林邨
+{ lat: 22.3854, lng: 114.1885 }, // 瀝源
+{ lat: 22.3921, lng: 114.1908 }, // 沙田公園
+{ lat: 22.3984, lng: 114.1963 }, // 火炭
+{ lat: 22.4047, lng: 114.2032 }, // 穿過城門河
+{ lat: 22.4135, lng: 114.2090 }, // 大學站方向
+{ lat: 22.4212, lng: 114.2075 }, // 進入吐露港段
+{ lat: 22.4326, lng: 114.1975 }, // 太和
+{ lat: 22.4408, lng: 114.1864 },
+{ lat: 22.4450, lng: 114.1792 },
+{ lat: 22.4475, lng: 114.1732 } // 大埔海濱公園
+],
+geodesic: true,
+strokeColor: "#00AAFF",
+strokeOpacity: 1.0,
+strokeWeight: 5,
+});
+
+bikePath.setMap(map);
+}
+</script>
+<script async defer
+src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU&callback=initMap">
+</script>
+</body>
+</html>
