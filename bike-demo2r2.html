@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>大圍至大埔單車徑</title>
+<meta charset="utf-8" />
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU"></script>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 14,
+center: { lat: 22.3921, lng: 114.2035 },
+mapTypeId: "terrain"
+});
+
+const bikePath = [
+{ lat: 22.3732, lng: 114.1792 },
+{ lat: 22.3751, lng: 114.1815 },
+{ lat: 22.3768, lng: 114.1836 },
+{ lat: 22.3794, lng: 114.1858 },
+{ lat: 22.3815, lng: 114.1879 },
+{ lat: 22.3842, lng: 114.1911 },
+{ lat: 22.3921, lng: 114.2035 },
+{ lat: 22.3960, lng: 114.2100 },
+{ lat: 22.3995, lng: 114.2173 },
+{ lat: 22.4041, lng: 114.2260 },
+{ lat: 22.4092, lng: 114.2322 },
+{ lat: 22.4128, lng: 114.2385 },
+{ lat: 22.4160, lng: 114.2431 },
+{ lat: 22.4206, lng: 114.2501 },
+{ lat: 22.4239, lng: 114.2546 },
+{ lat: 22.4265, lng: 114.2588 }
+];
+
+const bikePathPolyline = new google.maps.Polyline({
+path: bikePath,
+geodesic: true,
+strokeColor: "#00AAFF",
+strokeOpacity: 1.0,
+strokeWeight: 4
+});
+
+bikePathPolyline.setMap(map);
+
+new google.maps.Marker({
+position: bikePath[0],
+map: map,
+label: "起點",
+});
+
+new google.maps.Marker({
+position: bikePath[bikePath.length - 1],
+map: map,
+label: "終點",
+});
+}
+</script>
+</head>
+<body onload="initMap()">
+<div id="map"></div>
+</body>
+</html>
