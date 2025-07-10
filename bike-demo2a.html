@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>大圍至大埔單車徑導航地圖</title>
+<meta charset="utf-8" />
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 14,
+center: { lat: 22.401, lng: 114.203 }, // 大圍中間點
+});
+
+const bikePath = [
+// 大圍起點 (手寫地點 A)
+{ lat: 22.373794, lng: 114.179105 },
+{ lat: 22.374209, lng: 114.180589 },
+{ lat: 22.374934, lng: 114.182245 },
+{ lat: 22.375392, lng: 114.183240 },
+{ lat: 22.376154, lng: 114.184778 },
+{ lat: 22.377058, lng: 114.186380 },
+
+// 經沙田馬場
+{ lat: 22.379830, lng: 114.191910 },
+{ lat: 22.381643, lng: 114.194878 },
+{ lat: 22.384600, lng: 114.198320 },
+
+// 香港科學園段 (手寫圖加入綠色 highlight 的彎道)
+{ lat: 22.419280, lng: 114.209440 },
+{ lat: 22.421000, lng: 114.211000 },
+{ lat: 22.423440, lng: 114.211760 },
+
+// 沿白石角公園
+{ lat: 22.429109, lng: 114.213447 },
+{ lat: 22.432378, lng: 114.214572 },
+
+// 經東鐵橋下（大埔海濱公園段）
+{ lat: 22.440062, lng: 114.216579 },
+{ lat: 22.442038, lng: 114.217227 },
+
+// 元洲仔公園南端 → B點（大埔海濱單車徑上方）
+{ lat: 22.445137, lng: 114.218491 },
+{ lat: 22.447190, lng: 114.219142 }, // B 點
+];
+
+const routePath = new google.maps.Polyline({
+path: bikePath,
+geodesic: true,
+strokeColor: "#00cc66", // 綠色線
+strokeOpacity: 1.0,
+strokeWeight: 6,
+});
+
+routePath.setMap(map);
+
+// 起點 A
+new google.maps.Marker({
+position: bikePath[0],
+map: map,
+label: "A",
+title: "大圍起點（更新位置）",
+});
+
+// 終點 B
+new google.maps.Marker({
+position: bikePath[bikePath.length - 1],
+map: map,
+label: "B",
+title: "大埔終點（更新位置）",
+});
+}
+</script>
+</head>
+<body onload="initMap()">
+<div id="map"></div>
+</body>
+</html>
