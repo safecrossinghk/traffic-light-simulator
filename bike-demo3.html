@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<title>大圍至白石角單車徑導航</title>
+<style>
+#map {
+height: 100vh;
+width: 100%;
+}
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY"></script>
+<script>
+function initMap() {
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 14,
+center: { lat: 22.39, lng: 114.20 },
+});
+
+const bikePath = [
+{ lat: 22.373839, lng: 114.178989 },
+{ lat: 22.374634, lng: 114.180790 },
+{ lat: 22.375385, lng: 114.182195 },
+{ lat: 22.376080, lng: 114.183718 },
+{ lat: 22.376856, lng: 114.185272 },
+{ lat: 22.377647, lng: 114.186732 },
+{ lat: 22.379132, lng: 114.189851 },
+{ lat: 22.380912, lng: 114.192985 },
+{ lat: 22.383589, lng: 114.196845 },
+{ lat: 22.386367, lng: 114.200588 },
+{ lat: 22.390420, lng: 114.204404 },
+{ lat: 22.394150, lng: 114.206885 },
+{ lat: 22.399340, lng: 114.208851 },
+{ lat: 22.404482, lng: 114.209735 },
+{ lat: 22.408120, lng: 114.210080 },
+{ lat: 22.413447, lng: 114.211020 },
+{ lat: 22.420500, lng: 114.213241 },
+{ lat: 22.425700, lng: 114.216050 },
+{ lat: 22.428211, lng: 114.218098 },
+];
+
+const routePath = new google.maps.Polyline({
+path: bikePath,
+geodesic: true,
+strokeColor: "#0000ff",
+strokeOpacity: 1.0,
+strokeWeight: 6,
+});
+
+routePath.setMap(map);
+
+new google.maps.Marker({
+position: bikePath[0],
+map: map,
+label: "A",
+title: "大圍起點",
+});
+
+new google.maps.Marker({
+position: bikePath[bikePath.length - 1],
+map: map,
+label: "B",
+title: "白石角終點",
+});
+
+// 播報語音
+const msg = new SpeechSynthesisUtterance("導航已開始，請沿藍線騎行至白石角三門仔。");
+msg.lang = "zh-HK";
+window.speechSynthesis.speak(msg);
+}
+</script>
+</head>
+<body onload="initMap()">
+<div id="map"></div>
+</body>
+</html>
