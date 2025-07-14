@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>紅綠燈實時模擬 - 荔枝角道</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 60vh;
+      margin: 0;
+      padding: 0;
+    }
+    .info-box {
+      padding: 15px;
+      font-size: 18px;
+      background: #f9f9f9;
+    }
+    .green-man {
+      font-size: 32px;
+      color: green;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info-box" id="status">🚦 正在取得實時交通燈狀態⋯⋯</div>
+
+  <script src="https://webapi.amap.com/maps?v=2.0&key=f0a1f7a1234567890abcdef123456789"></script>
+  <script>
+    const map = new AMap.Map('map', {
+      center: [114.1605, 22.3372],
+      zoom: 18
+    });
+
+    const markerA = new AMap.Marker({
+      position: [114.1605, 22.3372],
+      title: "路口 A（荔枝角道）",
+      map: map
+    });
+
+    const markerB = new AMap.Marker({
+      position: [114.1602, 22.3369],
+      title: "路口 B（長荔街）",
+      map: map
+    });
+
+    const statusEl = document.getElementById("status");
+
+    // 模擬從高德 API 取得紅綠燈轉換狀態（實際應為 fetch，但此示例以 setTimeout 模擬）
+    function fetchTrafficLightStatus() {
+      // 模擬資料更新
+      const now = new Date();
+      const seconds = now.getSeconds();
+
+      // 假設每分鐘中：
+      // 第0-20秒：車燈紅、人燈綠
+      // 第21-28秒：人燈閃爍
+      // 第29-59秒：車燈綠、人燈紅
+      if (seconds <= 20) {
+        statusEl.innerHTML = "🚶‍♂️ 行人綠燈亮起：<span class='green-man'>閃爍中</span>（剩餘：" + (20 - seconds) + " 秒）";
+        playVoice("行人綠燈亮起，請過馬路");
+      } else if (seconds <= 28) {
+        statusEl.innerHTML = "⚠️ 行人燈即將轉紅，請勿橫過馬路（剩餘：" + (28 - seconds) + " 秒）";
+        playVoice("即將轉紅燈，請儘快離開馬路");
+      } else {
+        statusEl.innerHTML = "⛔ 行人紅燈，請勿過馬路（預計下次綠燈還有：" + (60 - seconds) + " 秒）";
+      }
+    }
+
+    function playVoice(text) {
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "zh-HK";
+      window.speechSynthesis.cancel(); // 避免重疊
+      window.speechSynthesis.speak(msg);
+    }
+
+    setInterval(fetchTrafficLightStatus, 10000); // 每 10 秒更新一次
+    fetchTrafficLightStatus(); // 初始載入
+  </script>
+</body>
+</html>
