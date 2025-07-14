@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>實時紅綠燈監測</title>
+<style>
+body { font-family: sans-serif; text-align: center; padding: 20px; }
+#map { width: 100%; height: 50vh; }
+#status { font-size: 24px; margin: 20px; }
+#countdown { font-size: 48px; color: green; }
+</style>
+</head>
+<body>
+<h1>荔枝角道 & 長荔街 紅綠燈實時狀態</h1>
+<div id="map"></div>
+<div id="status">🔄 載入中⋯⋯</div>
+<div id="countdown">--</div>
+
+<script src="https://crosslight-proxy.example.com/gmap-loader.js"></script>
+
+<script>
+async function updateLight() {
+try {
+const res = await fetch('https://crosslight-proxy.example.com/traffic-light/now?junction=lcj-lsg');
+const data = await res.json();
+const s = document.getElementById('status');
+const c = document.getElementById('countdown');
+
+if (data.phase === 'green') {
+s.innerText = '🟢 行人綠燈';
+c.innerText = data.remain + '秒';
+c.style.color = 'green';
+} else if (data.phase === 'flashing') {
+s.innerText = '🟢 行人綠燈（閃爍）';
+c.innerText = data.remain + '秒';
+c.style.color = 'orange';
+} else {
+s.innerText = '🔴 行人紅燈';
+c.innerText = '--';
+c.style.color = 'red';
+}
+if (data.voice) {
+const msg = new SpeechSynthesisUtterance(data.voice);
+msg.lang = 'zh-HK';
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(msg);
+}
+} catch (e) {
+document.getElementById('status').innerText = '⚠️ 無法取得資料';
+document.getElementById('countdown').innerText = '--';
+}
+}
+
+updateLight();
+setInterval(updateLight, 5000);
+</script>
+</body>
+</html>
