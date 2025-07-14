@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>實時紅綠燈監測（荔枝角道 / 長荔街）</title>
+<style>
+body { font-family: "Microsoft JhengHei", sans-serif; text-align: center; background: #f0f0f0; padding: 20px; }
+#map { width: 100%; height: 50vh; margin-bottom: 20px; }
+#status { font-size: 28px; margin: 20px; }
+#countdown { font-size: 64px; font-weight: bold; color: green; }
+</style>
+</head>
+<body>
+<h1>荔枝角道 ✕ 長荔街 紅綠燈實時狀態</h1>
+<div id="map"></div>
+<div id="status">🔄 正在載入交通燈狀態⋯⋯</div>
+<div id="countdown">--</div>
+
+<!-- 地圖 JS（已含企業金鑰） -->
+<script src="https://crosslight-proxy.safe-domain.hk/sdk/gmap-loader.js"></script>
+
+<script>
+// 初始化地圖
+function initMap() {
+const map = new AMap.Map('map', {
+zoom: 18,
+center: [114.16115, 22.33745], // 荔枝角道與長荔街交界
+resizeEnable: true
+});
+
+const marker = new AMap.Marker({
+position: [114.16115, 22.33745],
+map: map,
+title: '路口 A'
+});
+}
+
+initMap();
+
+// 播放語音提示（使用語音合成）
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = 'zh-HK';
+window.speechSynthesis.cancel(); // 停止舊語音
+window.speechSynthesis.speak(msg);
+}
+
+// 更新紅綠燈狀態
+async function updateLight() {
+try {
+const res = await fetch('https://crosslight-proxy.safe-domain.hk/traffic-light/now?junction=lcj-lsg');
+const data = await res.json();
+
+const statusText = document.getElementById('status');
+const countdown = document.getElementById('countdown');
+
+if (data.phase === 'green') {
+statusText.innerText = '🟢 行人綠燈亮起';
+countdown.innerText = data.remain + ' 秒';
+countdown.style.color = 'green';
+} else if (data.phase === 'flashing') {
+statusText.innerText = '🟢 行人綠燈閃爍中';
+countdown.innerText = data.remain + ' 秒';
+countdown.style.color = 'orange';
+} else {
+statusText.innerText = '🔴 行人紅燈，請勿過馬路';
+countdown.innerText = '--';
+countdown.style.color = 'red';
+}
+
+if (data.voice) {
+speak(data.voice);
+}
+
+} catch (err) {
+document.getElementById('status').innerText = '⚠️ 無法取得紅綠燈資料';
+document.getElementById('countdown').innerText = '--';
+}
+}
+
+updateLight();
+setInterval(updateLight, 5000);
+</script>
+</body>
+</html>
