@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8">
+  <title>紅綠燈模擬 - 荔枝角道與長荔街</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    html, body, #map {
+      width: 100%;
+      height: 60vh;
+      margin: 0;
+      padding: 0;
+    }
+    .info-box {
+      padding: 15px;
+      font-size: 18px;
+      background: #f9f9f9;
+    }
+    .green-man {
+      font-size: 32px;
+      color: green;
+      animation: blink 1s step-end infinite;
+    }
+    @keyframes blink {
+      50% { opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="info-box" id="status">
+    🚦 正在載入紅綠燈狀態⋯⋯
+  </div>
+
+  <script src="https://webapi.amap.com/maps?v=2.0&key=f0a1f7a1234567890abcdef123456789"></script>
+  <script>
+    const map = new AMap.Map('map', {
+      center: [114.1605, 22.3372],
+      zoom: 18
+    });
+
+    const markerA = new AMap.Marker({
+      position: [114.1605, 22.3372],
+      title: "路口 A（荔枝角道）",
+      map: map
+    });
+
+    const markerB = new AMap.Marker({
+      position: [114.1602, 22.3369],
+      title: "路口 B（長荔街）",
+      map: map
+    });
+
+    function simulateTrafficLightCycle() {
+      const statusEl = document.getElementById("status");
+      let phase = 0;
+
+      setInterval(() => {
+        if (phase === 0) {
+          statusEl.innerHTML = "🚶‍♂️ 行人綠燈亮起：<span class='green-man'>閃爍中</span>（15秒）";
+          playVoice("行人綠燈亮起，請過馬路");
+        } else if (phase === 1) {
+          statusEl.innerHTML = "⛔ 即將轉紅燈，請勿橫過馬路";
+          playVoice("即將轉紅燈，請勿過馬路");
+        } else if (phase === 2) {
+          statusEl.innerHTML = "🚗 車輛綠燈：行人紅燈";
+        }
+        phase = (phase + 1) % 3;
+      }, 15000);
+    }
+
+    function playVoice(text) {
+      const msg = new SpeechSynthesisUtterance(text);
+      msg.lang = "zh-HK";
+      window.speechSynthesis.speak(msg);
+    }
+
+    simulateTrafficLightCycle();
+  </script>
+</body>
+</html>
