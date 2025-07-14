@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>🌤 擷取 Bing Aurora 天氣預測</title>
+<style>
+body { font-family: Arial; background: #f9f9f9; padding: 20px; }
+h1 { color: #2a4d69; }
+.card { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 0 5px #ccc; margin-top: 20px; }
+.loading { color: gray; }
+</style>
+</head>
+<body>
+
+<h1>🌤 Microsoft Aurora 天氣預測（經 Bing 擷取）</h1>
+
+<div class="card">
+<p><strong>地點：</strong><span id="location">香港</span></p>
+<p><strong>預測氣溫：</strong><span id="temp" class="loading">載入中...</span></p>
+<p><strong>天氣描述：</strong><span id="desc" class="loading">載入中...</span></p>
+</div>
+
+<script>
+const location = "hong kong weather"; // 可改為其他地點
+
+const url = "https://cors-anywhere.herokuapp.com/https://www.bing.com/search?q=" + encodeURIComponent(location);
+
+fetch(url)
+.then(response => response.text())
+.then(html => {
+const parser = new DOMParser();
+const doc = parser.parseFromString(html, "text/html");
+
+// 溫度區塊通常在 class="wtr_currTemp b_focusTextLarge"
+const tempNode = doc.querySelector(".wtr_currTemp");
+const descNode = doc.querySelector(".wtr_caption");
+
+const temp = tempNode ? tempNode.textContent.trim() : "未找到";
+const desc = descNode ? descNode.textContent.trim() : "無描述";
+
+document.getElementById("temp").textContent = temp;
+document.getElementById("desc").textContent = desc;
+})
+.catch(err => {
+console.error("擷取失敗：", err);
+document.getElementById("temp").textContent = "錯誤";
+document.getElementById("desc").textContent = "錯誤";
+});
+</script>
+
+</body>
+</html>
