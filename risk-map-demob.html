@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head><meta charset="UTF-8"/><title>警力風險監測　Live版</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+<style>#map{height:80vh;} .btn{margin:10px;padding:6px;}</style>
+</head>
+<body>
+<h2>荔枝角／長沙灣 警力風險監測（Live）</h2>
+<div id="map"></div>
+<button id="refreshBtn" class="btn">立即更新</button>
+<div id="info"></div>
+<audio id="audioAlert" src="alert-cantonese.mp3"></audio>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const places = {
+'荔枝角站': { coords:[22.3345,114.1574] },
+'長沙灣站': { coords:[22.3338,114.1579] },
+};
+const map = L.map('map').setView([22.334,114.1576],15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+Object.entries(places).forEach(([n,d])=>{
+d.marker = L.circle(d.coords, {color:'grey',radius:200}).addTo(map).bindPopup(n);
+});
+const getPopular = async name=> {
+const res = await fetch('https://api.app.outscraper.com/maps/search-v2',{
+method:'POST', headers:{
+'X-API-KEY':'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg',
+'Content-Type':'application/json'
+},
+body: JSON.stringify({query:name,limit:1,language:'zh',region:'hk'})
+});
+if(!res.ok) throw new Error('API 錯誤');
+const json = await res.json();
+const pt = json[0].popular_times; // 如文檔範例有此欄位 [oai_citation:0‡outscraper.com](https://outscraper.com/places-api-popular-times/?utm_source=chatgpt.com)
+const today = new Date().getDay(); // 0–6 星期日為0
+const todayData = pt.find(d=>d.day===((today+6)%7+1));
+const thisHour = new Date().getHours();
+const hourData = todayData.popular_times.find(h=>h.hour===thisHour);
+return hourData.percentage;
+};
+async function update() {
+const info = document.getElementById('info');
+info.innerHTML='載入中…';
+let alert = false;
+for(const [n,d] of Object.entries(places)){
+try {
+const pct = await getPopular(n);
+let risk='綠', color='green';
+if(pct>80){ risk='高'; color='red'; alert=true; }
+else if(pct>50){ risk='中'; color='orange'; }
+d.marker.setStyle({color});
+info.innerHTML+=`<strong>${n}</strong>：人流 ${pct}% → <span style="color:${color}">${risk}風險</span><br>`;
+} catch(e){
+info.innerHTML+=`${n} 查詢錯誤<br>`;
+}
+}
+if(alert) document.getElementById('audioAlert').play();
+}
+document.getElementById('refreshBtn').onclick=update;
+update();
+setInterval(update,300000);
+</script>
+</body>
+</html>
