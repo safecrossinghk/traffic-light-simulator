@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>荔枝角道 × 長荔街 紅綠燈實時狀態</title>
+<style>
+body {
+font-family: sans-serif;
+text-align: center;
+margin-top: 50px;
+}
+#status {
+font-size: 2em;
+margin: 20px;
+}
+.green {
+color: green;
+}
+.red {
+color: red;
+}
+</style>
+</head>
+<body>
+<h1>荔枝角道 ＆ 長荔街 紅綠燈實時狀態</h1>
+<div id="status">正在載入交通燈狀態……</div>
+
+<script>
+async function fetchStatus() {
+try {
+const response = await fetch('https://proxy.safecrossinghk.com/traffic-light-a');
+const data = await response.json();
+
+const statusEl = document.getElementById('status');
+if (data.status === 'green') {
+statusEl.textContent = '行人綠燈（可過馬路）';
+statusEl.className = 'green';
+playVoice('綠燈亮起，可以過馬路');
+} else if (data.status === 'red') {
+statusEl.textContent = '行人紅燈（請勿橫過）';
+statusEl.className = 'red';
+playVoice('紅燈，請勿橫過馬路');
+} else {
+statusEl.textContent = '無法判斷燈號';
+statusEl.className = '';
+}
+} catch (e) {
+document.getElementById('status').textContent = '無法取得資料';
+}
+}
+
+function playVoice(message) {
+const utterance = new SpeechSynthesisUtterance(message);
+utterance.lang = 'zh-HK';
+speechSynthesis.speak(utterance);
+}
+
+fetchStatus();
+setInterval(fetchStatus, 10000); // 每10秒自動更新
+</script>
+</body>
+</html>
