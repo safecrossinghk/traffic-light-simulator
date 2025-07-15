@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<title>荔枝角／長沙灣 警力風險監測 Demo</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet/dist/leaflet.css"
+/>
+<style>
+#map { height: 80vh; }
+.info { padding: 6px 8px; background: white; }
+.btn { margin: 8px; padding: 6px 12px; cursor: pointer; }
+</style>
+</head>
+<body>
+<h2>🔍 荔枝角 & 長沙灣 警力風險監測（模擬版）</h2>
+<div id="map"></div>
+<button id="refreshBtn" class="btn">手動更新風險狀態</button>
+<div id="info" class="info"></div>
+
+<audio id="audioAlert" src="alert-cantonese.mp3"></audio>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const areas = {
+'荔枝角': { coords: [22.3345, 114.1574], risk: '綠' },
+'長沙灣': { coords: [22.3338, 114.1579], risk: '綠' },
+};
+
+const riskColors = { '高': 'red', '中': 'orange', '綠': 'green' };
+
+const map = L.map('map').setView([22.334, 114.1575], 15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '© OpenStreetMap'
+}).addTo(map);
+
+const markers = {};
+Object.entries(areas).forEach(([name, data]) => {
+markers[name] = L.circle(data.coords, {
+color: riskColors[data.risk],
+radius: 200,
+}).addTo(map).bindPopup(name);
+});
+
+function simulateFetchData() {
+return {
+'荔枝角': {
+flowChange: Math.random() < 0.5 ? '急降' : '穩定',
+traffic: Math.random() < 0.3 ? '封路／緩慢' : '正常',
+news: Math.random() < 0.4,
+},
+'長沙灣': {
+flowChange: Math.random() < 0.5 ? '急降' : '穩定',
+traffic: Math.random() < 0.3 ? '封路／緩慢' : '正常',
+news: Math.random() < 0.4,
+}
+};
+}
+
+async function updateRisk() {
+const data = simulateFetchData();
+const infoDiv = document.getElementById('info');
+infoDiv.innerHTML = '';
+
+Object.entries(data).forEach(([name, d]) => {
+let risk = '綠';
+if (d.flowChange === '急降' && d.traffic !== '正常' && d.news) {
+risk = '高';
+} else if (
+(d.flowChange === '急降' && d.traffic !== '正常') ||
+(d.flowChange === '急降' && d.news) ||
+(d.traffic !== '正常' && d.news)
+) {
+risk = '中';
+}
+areas[name].risk = risk;
+markers[name].setStyle({ color: riskColors[risk] });
+infoDiv.innerHTML += `
+<strong>${name}：</strong>
+人流：${d.flowChange}；交通：${d.traffic}；新聞提示：${d.news ? '有' : '無'} → <span style="color:${riskColors[risk]}">${risk === '綠' ? '✅ 低風險' : (risk === '中' ? '⚠️ 中風險' : '🔴 高風險')}</span><br>
+`;
+if (areas[name].risk === '高') {
+document.getElementById('audioAlert').play();
+}
+});
+}
+
+document.getElementById('refreshBtn').onclick = updateRisk;
+
+updateRisk();
+setInterval(updateRisk, 300000); // 每五分鐘
+
+</script>
+</body>
+</html>
