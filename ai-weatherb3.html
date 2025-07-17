@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI風暴消息</title>
+<style>
+body {
+font-family: "Noto Sans TC", sans-serif;
+background: #eef3f8;
+color: #222;
+padding: 1em;
+line-height: 1.6;
+}
+h1 {
+text-align: center;
+color: #005d9e;
+}
+.section {
+background: #fff;
+margin: 1em auto;
+padding: 1em;
+border-radius: 10px;
+max-width: 800px;
+box-shadow: 0 0 10px rgba(0,0,0,0.05);
+}
+.warn {
+background: #ffe8aa;
+padding: 0.5em;
+font-weight: bold;
+color: #a00;
+border-left: 5px solid #a00;
+}
+.map {
+height: 400px;
+margin: 1em 0;
+}
+.activity-input {
+margin-top: 1em;
+}
+.result {
+font-weight: bold;
+color: #b00;
+}
+button {
+margin-top: 1em;
+}
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+</head>
+<body>
+
+<h1>🌀 AI風暴消息</h1>
+<div class="section" id="date">版本：2025-07-17 上午 9:00</div>
+
+<div class="section" id="warning">
+<div class="warn" id="hkoWarning">⚠️ 正在載入天文台警告...</div>
+</div>
+
+<div class="section" id="forecast">
+<h2>🌬️ AI 預測路徑圖</h2>
+<div id="map" class="map"></div>
+<p>本圖顯示由 <strong>GLO-TCTrackX</strong>模型預測的風暴移動路徑（最新預測）。</p>
+</div>
+
+<div class="section" id="windSignal">
+<h2>📊 風球懸掛機率</h2>
+<ul id="windProbList"></ul>
+</div>
+
+<div class="section" id="impact">
+<h2>📅 三日內影響時段預測</h2>
+<ul id="impactInfo">
+<li>最接近香港時間：載入中...</li>
+<li>最可能懸掛八號信號日子：載入中...</li>
+<li>對戶外活動與航班影響：載入中...</li>
+</ul>
+</div>
+
+<div class="section" id="activity">
+<h2>🏃🏻‍♀️ 活動建議助手</h2>
+<p>請輸入你的活動時間與地點（例如「7月18日下午行山」）：</p>
+<input id="activityInput" class="activity-input" type="text" placeholder="7月18日早上乘船"/>
+<button onclick="suggestActivity()">查詢建議</button>
+<p id="activityResult" class="result"></p>
+</div>
+
+<div class="section" id="tide">
+<h2>🌊 風暴潮預測圖</h2>
+<img src="https://upload.wikimedia.org/wikipedia/commons/thumb/2/28/Storm_surge_example.svg/640px-Storm_surge_example.svg.png" width="100%" alt="示意圖">
+<p>如需接入實時風暴潮資料（NOAA或天文台），可稍後整合。</p>
+</div>
+
+<div class="section" id="voice">
+<h2>🔊 語音提示</h2>
+<button onclick="speak('zh')">📢 粵語播放</button>
+<button onclick="speak('en')">📢 英語播放</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const aiData = {
+path: [
+{"time":"2025-07-17T09:00Z","lat":16.1,"lng":125.2},
+{"time":"2025-07-18T09:00Z","lat":17.5,"lng":121.7},
+{"time":"2025-07-19T09:00Z","lat":18.7,"lng":119.2},
+{"time":"2025-07-20T09:00Z","lat":20.5,"lng":117.0}
+],
+hkWindBallProb: [15, 50, 35],
+impact: {
+closestTime: "2025-07-18 23:00 HKT",
+strongSignalDay: "2025-07-19 上午",
+suggestion: "風力明顯增強，戶外活動如行山或航班可能受影響，建議提早安排行程或留意天氣變化。"
+},
+voiceText: {
+zh: "根據最新AI模型，熱帶氣旋將於7月18日晚上最接近香港，三號風球機率為50%，八號風球機率為35%。",
+en: "According to the latest AI model, the tropical cyclone will approach Hong Kong on the evening of July 18 with a 50% chance of Signal No.3 and 35% chance of Signal No.8."
+}
+};
+
+const map = L.map('map').setView([22.3, 114.2], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+if (aiData.path && aiData.path.length > 1) {
+const latlngs = aiData.path.map(p => [p.lat, p.lng]);
+L.polyline(latlngs, {color: 'red'}).addTo(map);
+L.marker(latlngs[latlngs.length - 1]).addTo(map)
+.bindPopup("最新位置").openPopup();
+}
+
+const windList = document.getElementById("windProbList");
+["一號", "三號", "八號"].forEach((label, i) => {
+const li = document.createElement("li");
+li.textContent = `${label}風球機率：${aiData.hkWindBallProb[i]}%`;
+windList.appendChild(li);
+});
+
+document.getElementById("impactInfo").innerHTML = `
+<li>最接近香港時間：${aiData.impact.closestTime}</li>
+<li>最可能懸掛八號信號日子：${aiData.impact.strongSignalDay}</li>
+<li>對戶外活動與航班影響：${aiData.impact.suggestion}</li>
+`;
+
+function suggestActivity() {
+const input = document.getElementById("activityInput").value;
+const risky = /行山|乘船|露營|外出|活動/;
+const day = input.includes("18") ? "七月十八日" : "該日";
+const result = risky.test(input) ?
+`⚠️ AI預測${day}期間風勢較大，建議你延期或改變活動安排。` :
+`✅ AI預測${day}風勢尚可，活動可如常進行。`;
+document.getElementById("activityResult").textContent = result;
+}
+
+function speak(lang) {
+const msg = new SpeechSynthesisUtterance();
+msg.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+msg.text = aiData.voiceText?.[lang] || "未有預測資料。";
+speechSynthesis.speak(msg);
+}
+
+// 天文台警告
+fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc")
+.then(res => res.json())
+.then(data => {
+const txt = data?.details || "現時沒有天氣警告。";
+document.getElementById("hkoWarning").textContent = `⚠️ 現時警告：${txt}`;
+});
+</script>
+</body>
+</html>
