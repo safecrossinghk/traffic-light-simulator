@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>AI風暴消息</title>
+<style>
+body { font-family: sans-serif; margin: 2em; background: #f0f4f8; }
+h1 { color: #0055a5; }
+.section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+.warning { background: #fff8e1; border-left: 5px solid #ffa500; padding: 10px; }
+.forecast-box ul { padding-left: 1.2em; }
+.map-box { height: 400px; width: 100%; background: #ddd; display: flex; align-items: center; justify-content: center; color: #666; font-size: 1.2em; }
+</style>
+</head>
+<body>
+
+<h1>🌪️ AI風暴消息</h1>
+
+<div class="section warning">
+<h3>⚠️ 香港天文台警告</h3>
+<p>現時警告：<strong>黃色暴雨警告信號</strong></p>
+</div>
+
+<div class="section">
+<h2>📍 AI 預測路徑圖（由 Gemini 多模態模型預測）</h2>
+<div class="map-box">
+<!-- 實際部署時可用地圖 API 插入圖層 -->
+[地圖顯示 AI 路徑（建議採用 Google Maps / Leaflet）]
+</div>
+</div>
+
+<div class="section">
+<h2>📊 香港風球懸掛機率</h2>
+<ul id="windProbList"></ul>
+</div>
+
+<div class="section">
+<h2>🗓️ 輸入你計劃的活動</h2>
+<input type="text" id="activityInput" placeholder="例如：7月18日下午行山" style="width: 80%;" />
+<button onclick="checkActivity()">檢查活動風險</button>
+<p id="activityResult" style="margin-top: 10px; font-weight: bold;"></p>
+</div>
+
+<div class="section forecast-box">
+<h3>📅 三日內影響預測</h3>
+<ul>
+<li><strong>最接近香港：</strong> 7月19日（星期六）凌晨</li>
+<li><strong>三號風球機率最高：</strong> 7月19日（機率：70%）</li>
+<li><strong>八號風球機率最高：</strong> 7月20日（機率：60%）</li>
+<li><strong>風險預警：</strong> 建議避免 7月20日下午進行戶外活動；航班可能受延誤影響。</li>
+</ul>
+</div>
+
+<script>
+// 假設來自 AI 模型的資料（每日早上9點更新此 JSON）
+const hkWindBallProb = [
+{ date: "7月18日", p1: 10, p3: 30, p8: 5 },
+{ date: "7月19日", p1: 40, p3: 70, p8: 20 },
+{ date: "7月20日", p1: 60, p3: 65, p8: 60 }
+];
+
+// 顯示風球機率
+const list = document.getElementById("windProbList");
+hkWindBallProb.forEach(entry => {
+const li = document.createElement("li");
+li.textContent = `${entry.date}：一號 ${entry.p1}%｜三號 ${entry.p3}%｜八號 ${entry.p8}%`;
+list.appendChild(li);
+});
+
+// 活動風險分析（簡易邏輯）
+function checkActivity() {
+const input = document.getElementById("activityInput").value;
+const output = document.getElementById("activityResult");
+if (!input) return output.textContent = "請輸入活動內容";
+if (input.includes("19") || input.includes("20")) {
+output.textContent = "⚠️ 建議取消／延後活動，天氣風險偏高";
+} else {
+output.textContent = "✅ 暫時未見明顯風險，可繼續計劃";
+}
+}
+</script>
+
+</body>
+</html>
