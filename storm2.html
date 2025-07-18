@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>AI風暴消息</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<style>
+body { font-family: sans-serif; padding: 2em; background: #f9f9f9; }
+.warning { background: #fff3cd; padding: 1em; border: 1px solid #ffeeba; color: #856404; }
+.map { height: 400px; margin-top: 20px; }
+</style>
+</head>
+<body>
+<h2>🌪️ AI風暴消息</h2>
+<div id="version">版本：載入中...</div>
+<div class="warning" id="warning">載入天氣警告中...</div>
+<h3>📘 AI 預測路徑圖</h3>
+<div id="map" class="map"></div>
+<p style="font-size: 0.9em; color: gray;">
+本圖顯示由 <b>GLO-TCtrackX</b> 模型預測的風暴移動路徑（最新預測）。
+</p>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+async function loadStormData() {
+try {
+const res = await fetch("https://storm2-api.ctakwah.workers.dev/aurora-data");
+const data = await res.json();
+document.getElementById("version").textContent = "版本：" + data.version;
+document.getElementById("warning").textContent = "現時警告：" + data.warning;
+
+const map = L.map("map").setView([20, 122], 5);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+maxZoom: 12,
+}).addTo(map);
+
+const latlngs = data.track.map(p => [p.lat, p.lon]);
+const marker = L.marker(latlngs[0]).addTo(map).bindPopup("最新位置").openPopup();
+L.polyline(latlngs, { color: "red" }).addTo(map);
+
+} catch (e) {
+document.getElementById("warning").textContent = "🚫 無法載入數據：" + e.message;
+}
+}
+
+loadStormData();
+</script>
+</body>
+</html>
