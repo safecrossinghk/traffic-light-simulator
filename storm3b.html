@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<!-- 同上略，只保留核心 -->
+</head>
+<body>
+<div class="container">
+<div class="card">
+<div id="updateTime">版本：載入中...</div>
+<div class="warn" id="hkWarn">⚠️ 載入天文台警告中...</div>
+</div>
+<div class="card">
+<h2>🌀 AI 預測路徑圖</h2>
+<div id="map" style="height:300px;"></div>
+</div>
+<!-- 其它區塊略 -->
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const HKO_WARN_API = 'https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc';
+const AURORA_API = '/aurora-data.json'; // Worker 根 URL
+
+async function loadAll() {
+// CORS 注：此為 Worker 內 fetch，不需考慮客戶端限制
+document.getElementById('map').style.filter = 'blur(5px)';
+
+const [auroraRes, hkoRes] = await Promise.all([
+fetch(AURORA_API),
+fetch(HKO_WARN_API)
+]);
+
+const hko = await hkoRes.json();
+document.getElementById('hkWarn').innerText = `⚠️ 現時警告：${hko.details||'無警告'}`;
+
+if (!auroraRes.ok) {
+document.getElementById('updateTime').innerText = '版本載入失敗';
+return;
+}
+const data = await auroraRes.json();
+document.getElementById('updateTime').innerText = `版本：${data.update_time}`;
+
+const coords = data.forecast.map(p => [p.lat, p.lon]);
+const map = L.map('map').setView(coords[0], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.polyline(coords, { color: 'red'}).addTo(map);
+L.marker(coords.at(-1)).addTo(map).bindPopup('最新位置').openPopup();
+
+document.getElementById('map').style.filter = 'none';
+}
+
+loadAll();
+</script>
+</body>
+</html>
