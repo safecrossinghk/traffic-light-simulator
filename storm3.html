@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AI 風暴預測（Aurora 模型）</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+body {
+font-family: sans-serif;
+background: #f6f9fc;
+margin: 0;
+padding: 0;
+}
+.container {
+max-width: 600px;
+margin: auto;
+padding: 1rem;
+}
+h2 {
+margin: 1rem 0 0.5rem;
+color: #0054a6;
+font-size: 1.2rem;
+}
+.card {
+background: white;
+padding: 1rem;
+border-radius: 8px;
+margin-bottom: 1rem;
+box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+#map {
+height: 300px;
+width: 100%;
+}
+.warn {
+background: #fff8e1;
+padding: 0.5rem;
+border-left: 5px solid orange;
+margin-bottom: 1rem;
+}
+.info {
+font-size: 0.95rem;
+line-height: 1.4;
+}
+.btn-group {
+display: flex;
+gap: 0.5rem;
+margin-top: 0.5rem;
+}
+button {
+flex: 1;
+padding: 0.5rem;
+border: none;
+border-radius: 5px;
+background: #1976d2;
+color: white;
+font-size: 1rem;
+}
+input[type="number"] {
+width: 100%;
+padding: 0.5rem;
+font-size: 1rem;
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="card">
+<div>版本：<span id="updateTime">載入中...</span></div>
+<div class="warn">⚠️ 現時警告：現時沒有天氣警告。</div>
+</div>
+
+<div class="card">
+<h2>🌀 AI 預測路徑圖</h2>
+<div id="map"></div>
+<small>本圖顯示由 <strong>Aurora 模擬模型</strong> 預測的風暴移動路徑。</small>
+</div>
+
+<div class="card">
+<h2>🌬️ 風球懸掛機率</h2>
+<ul class="info">
+<li>二號風球機率：<strong>15%</strong></li>
+<li>三號風球機率：<strong>55%</strong></li>
+<li>八號風球機率：<strong>30%</strong></li>
+</ul>
+</div>
+
+<div class="card">
+<h2>📅 三日內影響預測</h2>
+<ul class="info" id="impactList">
+<li>最接近香港時間：2025-07-20 03:00</li>
+<li>可能懸掛八號信號時間：2025-07-20 上午</li>
+<li>建議：建議準備應變，注意航班延誤</li>
+</ul>
+</div>
+
+<div class="card">
+<h2>✅ 活動建議助手</h2>
+<input type="number" id="people" placeholder="輸入人數（如：10人在山上）"/>
+<button onclick="alert('⚠️ 建議：請避免戶外活動')">建議</button>
+</div>
+
+<div class="card">
+<h2>🗣️ 語音預報</h2>
+<div class="btn-group">
+<button onclick="speak('zh')">廣東話</button>
+<button onclick="speak('en')">English</button>
+</div>
+</div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+let map = L.map('map').setView([22.3, 114.2], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+async function loadTrack() {
+const res = await fetch('aurora-data.json');
+const data = await res.json();
+document.getElementById("updateTime").innerText = data.update_time;
+
+const coords = data.forecast.map(p => [p.lat, p.lon]);
+L.polyline(coords, { color: 'red' }).addTo(map);
+const latest = coords[coords.length - 1];
+L.marker(latest).addTo(map).bindPopup("最新位置").openPopup();
+map.setView(latest, 6);
+}
+
+function speak(lang) {
+const msg = new SpeechSynthesisUtterance();
+if (lang === 'zh') {
+msg.text = "預測三號風球機會較高，建議市民準備防風措施。";
+msg.lang = 'zh-HK';
+} else {
+msg.text = "A strong wind signal is expected. Please take precautionary measures.";
+msg.lang = 'en-US';
+}
+speechSynthesis.speak(msg);
+}
+
+loadTrack();
+</script>
+</body>
+</html>
