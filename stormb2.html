@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>🌪️ AI風暴消息</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body { font-family: "Helvetica", sans-serif; background: #f0f8ff; margin: 20px; }
+h1 { color: #0066cc; }
+.box { background: white; padding: 15px; margin-bottom: 20px; border-radius: 10px; box-shadow: 0 0 5px #ccc; }
+.warn { background: #ffefc6; padding: 10px; border-left: 5px solid orange; margin-bottom: 10px; }
+#map { height: 400px; }
+</style>
+</head>
+<body>
+<h1>🌪️ AI風暴消息</h1>
+
+<div class="box">
+<p>版本：<span id="latestTime">載入中...</span></p>
+<div class="warn" id="hkoWarning">⚠️ 載入天文台警告中...</div>
+</div>
+
+<div class="box">
+<h2>🗺️ AI 預測路徑圖</h2>
+<div id="map"></div>
+<p style="font-size: 12px; color: gray;">本圖顯示由 <strong>Aurora 模擬模型</strong> 預測的風暴移動路徑。</p>
+</div>
+
+<div class="box">
+<h2>🌬️ 風球懸掛機率</h2>
+<ul id="windProbList"></ul>
+</div>
+
+<div class="box">
+<h2>📆 三日內影響預測</h2>
+<ul id="impactInfo"></ul>
+</div>
+
+<div class="box">
+<h2>🧭 活動建議助手</h2>
+<input id="activityInput" placeholder="輸入活動（如：18號行山）" />
+<button onclick="suggestActivity()">建議</button>
+<p id="activityResult"></p>
+</div>
+
+<div class="box">
+<h2>🔊 語音預報</h2>
+<button onclick="speak('zh')">📢 廣東話</button>
+<button onclick="speak('en')">📢 English</button>
+</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+// 替換成你的 Worker URL👇
+fetch("https://stormb2-api.ctakwah.workers.dev/")
+.then(res => res.json())
+.then(aiData => {
+document.getElementById("latestTime").textContent = aiData.updateTime || "未知";
+
+// 地圖
+const map = L.map('map').setView([22.3, 114.2], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+if (aiData.path?.length) {
+const latlngs = aiData.path.map(p => [p.lat, p.lng]);
+L.polyline(latlngs, { color: 'red' }).addTo(map);
+L.marker(latlngs[latlngs.length - 1]).addTo(map).bindPopup("最新位置").openPopup();
+}
+
+// 風球機率
+const wind = ["一號", "三號", "八號"];
+aiData.hkWindBallProb.forEach((val, i) => {
+const li = document.createElement("li");
+li.textContent = `${wind[i]}風球機率：${val}%`;
+document.getElementById("windProbList").appendChild(li);
+});
+
+// 影響預測
+document.getElementById("impactInfo").innerHTML = `
+<li>最接近香港時間：${aiData.impact.closestTime}</li>
+<li>可能懸掛八號信號時間：${aiData.impact.strongSignalDay}</li>
+<li>建議：${aiData.impact.suggestion}</li>
+`;
+
+// 語音預報功能
+window.speak = function (lang) {
+const msg = new SpeechSynthesisUtterance();
+msg.lang = lang === 'zh' ? 'zh-HK' : 'en-US';
+msg.text = aiData.voiceText?.[lang] || "未有預測資料。";
+speechSynthesis.speak(msg);
+};
+
+// 活動建議
+window.suggestActivity = function () {
+const input = document.getElementById("activityInput").value;
+const risky = /行山|露營|乘船|戶外|海灘|活動/;
+const matchDay = input.match(/\d+/);
+const date = matchDay ? `七月${matchDay[0]}日` : "該日";
+const isRisky = risky.test(input);
+document.getElementById("activityResult").textContent =
+isRisky
+? `⚠️ AI預測${date}風勢較大，建議延期。`
+: `✅ AI預測${date}風勢穩定，活動可如常進行。`;
+};
+});
+
+// 天文台實時警告
+fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=warnsum&lang=tc")
+.then(res => res.json())
+.then(data => {
+const txt = data?.details || "現時沒有天氣警告。";
+document.getElementById("hkoWarning").textContent = `⚠️ 現時警告：${txt}`;
+});
+</script>
+</body>
+</html>
