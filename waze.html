@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>荔枝角即時交通 - Waze 地圖</title>
+<style>
+body {
+font-family: Arial, sans-serif;
+margin: 0;
+padding: 0;
+background-color: #f4f4f4;
+}
+header {
+background-color: #005eb8;
+color: white;
+padding: 1em;
+text-align: center;
+}
+.map-container {
+width: 100%;
+height: 600px;
+overflow: hidden;
+}
+iframe {
+border: none;
+width: 100%;
+height: 100%;
+}
+footer {
+text-align: center;
+padding: 1em;
+font-size: 0.9em;
+background-color: #eee;
+}
+</style>
+</head>
+<body>
+
+<header>
+<h1>荔枝角即時交通地圖（Waze）</h1>
+</header>
+
+<div class="map-container">
+<iframe
+src="https://embed.waze.com/iframe?zoom=15&lat=22.3389&lon=114.1516"
+allowfullscreen>
+</iframe>
+</div>
+
+<footer>
+資料來源：Waze 即時交通 | 顯示中心：荔枝角區
+</footer>
+
+</body>
+</html>
