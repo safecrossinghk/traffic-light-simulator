@@ -1,0 +1,114 @@
+
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>AI風暴消息</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; }
+#map { height: 50vh; }
+#chart { width:100%; height:300px; }
+#activity { margin:1em; }
+#advice { margin:1em; font-size:1.1em; }
+</style>
+</head>
+<body>
+
+<h1 style="text-align:center; margin:1em 0;">AI風暴消息</h1>
+<div id="map"></div>
+<canvas id="chart"></canvas>
+
+<div id="activity">
+<h3>📅 加入你的活動時間與地點</h3>
+<label>日期／時間： <input type="datetime-local" id="actTime"></label><br>
+<label>地點（如：觀塘、長洲）： <input type="text" id="actLoc"></label><br>
+<button id="checkBtn">分析建議</button>
+</div>
+<div id="advice"></div>
+
+<!-- Libraries -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+// 預設備用數據（機率圖用）
+const aiData = {
+hkWindBallProb: [
+{time:"2025-07-17T09:00Z", p3:0.05, p8:0.01},
+{time:"2025-07-18T09:00Z", p3:0.30, p8:0.10},
+{time:"2025-07-19T09:00Z", p3:0.60, p8:0.35},
+{time:"2025-07-20T09:00Z", p3:0.80, p8:0.55}
+]
+};
+
+// 繪製機率圖
+const ctx = document.getElementById('chart').getContext('2d');
+new Chart(ctx, {
+type: 'line',
+data: {
+labels: aiData.hkWindBallProb.map(p => p.time),
+datasets: [
+{label:'掛三號風球機率', data:aiData.hkWindBallProb.map(p=>p.p3*100), borderColor:'orange', fill:false},
+{label:'掛八號風球機率', data:aiData.hkWindBallProb.map(p=>p.p8*100), borderColor:'red', fill:false}
+]
+},
+options: {
+scales: { y:{ beginAtZero:true, max:100, ticks:{callback: v=>v + '%'} } },
+plugins: { title:{ display:true, text:'香港風球懸掛機率 (%)' } }
+}
+});
+
+// 地圖初始化
+const map = L.map('map').setView([20, 120], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+L.marker([22.3,114.2]).bindPopup('香港').addTo(map);
+
+// 取得 Cloudflare Worker API 的實時路徑資料
+fetch("https://stormb3-api.ctakwah.workers.dev/") // 請改為你實際部署的 Worker URL
+.then(res => res.json())
+.then(data => {
+if (!data.points || data.points.length === 0) {
+alert("❗ 無法載入 ECMWF 風暴資料");
+return;
+}
+const latlngs = data.points.map(p => [p.lat, p.lon]);
+const polyline = L.polyline(latlngs, {color:'red'}).addTo(map);
+data.points.forEach(p => {
+L.circleMarker([p.lat, p.lon], {radius:5, color:'red'})
+.bindPopup(`${p.time}<br>強度：${p.intensity}`)
+.addTo(map);
+});
+map.fitBounds(polyline.getBounds());
+})
+.catch(err => {
+console.error(err);
+alert("❌ 無法取得風暴路徑資料");
+});
+
+// 活動分析功能
+function checkActivity() {
+const t = new Date(document.getElementById('actTime').value);
+const loc = document.getElementById('actLoc').value.trim();
+if (!t || !loc) {
+alert('請輸入日期時間與地點');
+return;
+}
+const item = aiData.hkWindBallProb.find(p => new Date(p.time).getTime() === t.getTime());
+const prob = item ? (item.p3 + item.p8) : 0;
+let msg = `你安排於 ${t.toLocaleString()} 在「${loc}」進行活動。`;
+if (prob > 0.5) {
+msg += ' ⚠️ 風球機率較高，不建議在該時段戶外進行該活動。';
+} else {
+msg += ' 👍 風球機率較低，可考慮照常進行。';
+}
+document.getElementById('advice').innerText = msg;
+}
+document.getElementById('checkBtn').addEventListener('click', checkActivity);
+</script>
+
+</body>
+</html>
