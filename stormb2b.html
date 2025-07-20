@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>AI風暴消息</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<style>
+body { font-family: Arial, sans-serif; margin:0; padding:0; }
+#map { height: 50vh; }
+#chart { width:100%; height:300px; }
+#activity { margin:1em; }
+#advice { margin:1em; font-size:1.1em; }
+</style>
+</head>
+<body>
+
+<h1 style="text-align:center; margin:1em 0;">AI風暴消息</h1>
+<div id="map"></div>
+<canvas id="chart"></canvas>
+
+<div id="activity">
+<h3>📅 加入你的活動時間與地點</h3>
+<label>日期／時間： <input type="datetime-local" id="actTime"></label><br>
+<label>地點（如：觀塘、長洲）： <input type="text" id="actLoc"></label><br>
+<button id="checkBtn">分析建議</button>
+</div>
+<div id="advice"></div>
+
+<!-- JS Libraries -->
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+const workerURL = 'https://stormb2-api.ctakwah.workers.dev'; // 改成你 Cloudflare Worker 實際網址
+
+async function loadStormData() {
+try {
+const res = await fetch(workerURL);
+const json = await res.json();
+
+// 模擬解析格式（根據實際 GLO-TCTrackX 結構調整）
+const track = json.tracks[0]; // 假設取第一個颱風
+const latlngs = track.positions.map(p => [p.latitude, p.longitude]);
+
+// 地圖顯示
+const map = L.map('map').setView([20, 120], 5);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+const polyline = L.polyline(latlngs, {color:'red'}).addTo(map);
+latlngs.forEach((latlng, i) => {
+L.circleMarker(latlng, {radius:4, color:'red'}).bindPopup(`Time: ${track.positions[i].time}`).addTo(map);
+});
+L.marker([22.3,114.2]).bindPopup('香港').addTo(map);
+map.fitBounds(polyline.getBounds());
+
+// 機率圖可改為使用 AI 或模擬數據
+const ctx = document.getElementById('chart').getContext('2d');
+new Chart(ctx, {
+type: 'line',
+data: {
+labels: track.positions.map(p => p.time),
+datasets: [
+{label:'風速 (km/h)', data: track.positions.map(p=>p.windSpeed), borderColor:'orange', fill:false}
+]
+},
+options: {
+scales: { y: { beginAtZero:true } },
+plugins: { title:{ display:true, text:'風暴風速預測圖' } }
+}
+});
+
+} catch (e) {
+console.error('載入失敗', e);
+}
+}
+
+loadStormData();
+
+// 活動分析功能（模擬版本）
+document.getElementById('checkBtn').addEventListener('click', () => {
+const t = new Date(document.getElementById('actTime').value);
+const loc = document.getElementById('actLoc').value.trim();
+if (!t || !loc) {
+alert('請輸入日期時間與地點');
+return;
+}
+const msg = `你安排於 ${t.toLocaleString()} 在「${loc}」進行活動。\n請參考圖中風暴風速與預測路徑再作決定。`;
+document.getElementById('advice').innerText = msg;
+});
+</script>
+
+</body>
+</html>
