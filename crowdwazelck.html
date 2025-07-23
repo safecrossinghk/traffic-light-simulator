@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>荔枝角人流 + Waze 地圖</title>
+<style>
+body {
+font-family: "Helvetica", sans-serif;
+margin: 0;
+background-color: #f8f9fa;
+}
+header {
+background-color: #005eb8;
+color: white;
+padding: 1em;
+text-align: center;
+}
+.container {
+display: flex;
+flex-direction: row;
+flex-wrap: wrap;
+padding: 1em;
+}
+.locations, .map, .status {
+flex: 1 1 300px;
+margin: 0.5em;
+}
+button {
+display: block;
+width: 100%;
+margin: 0.3em 0;
+padding: 0.6em;
+font-size: 1em;
+background-color: #0078d4;
+color: white;
+border: none;
+border-radius: 5px;
+}
+button:hover {
+background-color: #005fa3;
+cursor: pointer;
+}
+iframe {
+width: 100%;
+height: 400px;
+border: none;
+}
+.status-box {
+background: #ffffff;
+padding: 1em;
+border-radius: 5px;
+box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+@media (max-width: 768px) {
+.container {
+flex-direction: column;
+}
+}
+</style>
+</head>
+<body>
+<header>
+<h1>荔枝角人流狀況 + Waze 即時交通</h1>
+</header>
+
+<div class="container">
+<div class="locations">
+<button onclick="selectLocation('荔枝角地鐵站出口 A')">荔枝角地鐵站出口 A</button>
+<button onclick="selectLocation('D2 Place')">D2 Place</button>
+<button onclick="selectLocation('長沙灣廣場')">長沙灣廣場</button>
+<button onclick="selectLocation('D2 Place Two')">D2 Place Two</button>
+<button onclick="selectLocation('泓景匯')">泓景匯</button>
+</div>
+
+<div class="map">
+<iframe id="wazeMap" src="https://embed.waze.com/iframe?zoom=16&lat=22.3389&lon=114.1516" allowfullscreen></iframe>
+</div>
+
+<div class="status">
+<div class="status-box" id="statusBox">
+📍 請點選左方地點開始查詢人流狀態。
+</div>
+</div>
+</div>
+
+<script>
+const locations = {
+"荔枝角地鐵站出口 A": {
+lat: 22.339258,
+lon: 114.149937,
+query: "Lai Chi Kok MTR Exit A"
+},
+"D2 Place": {
+lat: 22.337397,
+lon: 114.149699,
+query: "D2 Place One"
+},
+"長沙灣廣場": {
+lat: 22.337737,
+lon: 114.153652,
+query: "Cheung Sha Wan Plaza"
+},
+"D2 Place Two": {
+lat: 22.337153,
+lon: 114.148563,
+query: "D2 Place Two"
+},
+"泓景匯": {
+lat: 22.336565,
+lon: 114.152424,
+query: "The Pacifica"
+}
+};
+
+function selectLocation(name) {
+const loc = locations[name];
+if (!loc) return;
+
+// 更新地圖
+const wazeUrl = `https://embed.waze.com/iframe?zoom=16&lat=${loc.lat}&lon=${loc.lon}`;
+document.getElementById("wazeMap").src = wazeUrl;
+
+// 更新狀態文字 + 查詢
+document.getElementById("statusBox").innerHTML = `⏳ 正在查詢 ${name} 的人流狀況...`;
+
+// 查詢 Outscraper API
+fetch(`https://api.app.outscraper.com/maps/search-v2`, {
+method: 'POST',
+headers: {
+'X-API-KEY': 'MWE3NWNmMzFjZWNiNGMxMDlhNGNhNDFjNTY3ZjZkMTB8NzY5ZGY0MGQ0Zg',
+'Content-Type': 'application/json'
+},
+body: JSON.stringify({
+query: loc.query,
+limit: 1,
+language: "zh"
+})
+})
+.then(response => response.json())
+.then(data => {
+const result = data.data?.[0]?.popular_times?.find(pt => pt.name === (new Date()).toLocaleString('en-US', { weekday: 'long' }));
+const hour = new Date().getHours();
+const level = result?.data?.[hour] ?? "未知";
+
+const message = `📍 ${name}<br>🕒 現時人流：${level}（${hour}:00）`;
+document.getElementById("statusBox").innerHTML = message;
+
+speak(`${name} 現時人流為 ${level}`);
+})
+.catch(err => {
+console.error(err);
+document.getElementById("statusBox").innerHTML = `⚠️ 查詢失敗，請稍後再試。`;
+});
+}
+
+function speak(text) {
+const utter = new SpeechSynthesisUtterance(text);
+utter.lang = "zh-HK"; // 粵語優先，fallback 為普通話
+speechSynthesis.speak(utter);
+}
+</script>
+</body>
+</html>
