@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>荔枝角人流 + Waze 地圖</title>
+<style>
+body {
+font-family: sans-serif;
+padding: 20px;
+background: #f9f9f9;
+}
+button {
+margin: 5px;
+padding: 10px 15px;
+font-size: 16px;
+}
+#status {
+margin-top: 20px;
+font-size: 20px;
+color: #444;
+}
+iframe {
+width: 100%;
+height: 300px;
+border: none;
+margin-top: 20px;
+}
+</style>
+</head>
+<body>
+<h2>荔枝角人流 + Waze 地圖</h2>
+
+<div>
+<button onclick="loadLocation('荔枝角站出口 A', 22.3378, 114.1472)">荔枝角站</button>
+<button onclick="loadLocation('D2 Place', 22.3376, 114.1483)">D2 Place</button>
+<button onclick="loadLocation('長沙灣廣場', 22.3379, 114.1518)">長沙灣廣場</button>
+<button onclick="loadLocation('D2 Place Two', 22.3389, 114.1493)">D2 Place Two</button>
+<button onclick="loadLocation('泓景匯', 22.338, 114.15)">泓景匯</button>
+</div>
+
+<div id="status">請選擇地點以查看人流與交通情況。</div>
+
+<iframe id="wazeMap" src="https://embed.waze.com/iframe?zoom=16&lat=22.3378&lon=114.1472&pin=1" allowfullscreen></iframe>
+
+<script>
+function loadLocation(name, lat, lon) {
+// 更新地圖 iframe
+updateWazeMap(lat, lon);
+
+// 呼叫 Worker proxy 查詢人流
+const apiUrl = `https://crowdwavec.ctakwah.workers.dev/?location=${encodeURIComponent(name)}`;
+fetch(apiUrl)
+.then(res => res.json())
+.then(data => {
+const weekday = new Date().getDay(); // 0 = Sunday
+const hour = new Date().getHours();
+
+const popular = data[0]?.popular_times?.[0]?.data?.[weekday]?.[hour];
+
+const result = (typeof popular === 'number') ? `${popular}%` : "無數據";
+const text = `${name}：目前人流 ${result}`;
+document.getElementById("status").innerText = text;
+speak(`${name} 現時人流為 ${result}`);
+})
+.catch(err => {
+console.error(err);
+document.getElementById("status").innerText = `${name}：無法取得人流資料`;
+});
+}
+
+function updateWazeMap(lat, lon) {
+const iframe = document.getElementById("wazeMap");
+iframe.src = `https://embed.waze.com/iframe?zoom=16&lat=${lat}&lon=${lon}&pin=1`;
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+window.speechSynthesis.speak(msg);
+}
+</script>
+</body>
+</html>
