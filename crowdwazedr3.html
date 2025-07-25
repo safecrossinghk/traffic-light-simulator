@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>荔枝角人流 + Waze 地圖</title>
+<style>
+body {
+font-family: sans-serif;
+margin: 0;
+padding: 0;
+text-align: center;
+}
+#buttons {
+margin: 15px;
+}
+button {
+margin: 5px;
+padding: 10px 15px;
+font-size: 16px;
+}
+#status {
+margin: 10px;
+font-size: 20px;
+color: #333;
+}
+iframe {
+width: 100%;
+height: 500px;
+border: none;
+}
+</style>
+</head>
+<body>
+<h2>荔枝角人流 + Waze 地圖</h2>
+
+<div id="buttons">
+<button onclick="loadData('荔枝角站出口 A', 22.3385, 114.1496)">荔枝角站出口 A</button>
+<button onclick="loadData('D2 Place', 22.3371, 114.1483)">D2 Place</button>
+<button onclick="loadData('長沙灣廣場', 22.3368, 114.1535)">長沙灣廣場</button>
+<button onclick="loadData('D2 Place Two', 22.3366, 114.1476)">D2 Place Two</button>
+<button onclick="loadData('泓景匯', 22.3362, 114.1462)">泓景匯</button>
+</div>
+
+<div id="status">狀況資訊：未選擇</div>
+
+<iframe id="wazeMap"
+src="https://embed.waze.com/iframe?zoom=16&lat=22.3371&lon=114.1483&pin=1"
+allowfullscreen></iframe>
+
+<script>
+const proxyUrl = "https://crowdwazed.ctakwah.workers.dev"; // ← 使用你最新的 Cloudflare Worker URL
+
+function loadData(placeName, lat, lon) {
+document.getElementById("status").textContent = `讀取中：${placeName}...`;
+document.getElementById("wazeMap").src =
+`https://embed.waze.com/iframe?zoom=16&lat=${lat}&lon=${lon}&pin=1`;
+
+fetch(`${proxyUrl}/?location=${encodeURIComponent(placeName)}`)
+.then(res => res.json())
+.then(data => {
+console.log("Worker Response:", data);
+
+let statusText = "未知";
+if (data?.data?.[0]?.popular_times?.length > 0) {
+const today = new Date().getDay(); // Sunday = 0
+const hour = new Date().getHours();
+const todayData = data.data[0].popular_times.find(d => d.day === today);
+if (todayData) {
+const popularity = todayData.hours[hour];
+if (popularity >= 80) statusText = "高峰期";
+else if (popularity >= 40) statusText = "正常";
+else statusText = "疏落";
+}
+}
+
+document.getElementById("status").textContent = `現時 ${placeName} 人流為：${statusText}`;
+speak(`現時 ${placeName} 人流為 ${statusText}`);
+})
+.catch(err => {
+console.error("Fetch Error:", err);
+document.getElementById("status").textContent = `錯誤：無法取得 ${placeName} 的人流資料`;
+});
+}
+
+function speak(text) {
+if ("speechSynthesis" in window) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+window.speechSynthesis.cancel(); // stop previous
+window.speechSynthesis.speak(msg);
+}
+}
+</script>
+</body>
+</html>
