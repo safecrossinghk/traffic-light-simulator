@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>荔枝角人流 + Waze 地圖</title>
+  <style>
+    body { font-family: sans-serif; margin: 0; padding: 0; }
+    #map-container { width: 100%; height: 60vh; }
+    #controls { padding: 10px; text-align: center; background: #f0f0f0; }
+    button { margin: 5px; padding: 10px; font-size: 16px; }
+    #status { text-align: center; padding: 10px; font-size: 18px; }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button onclick="updateLocation('荔枝角站出口 A')">荔枝角站出口 A</button>
+    <button onclick="updateLocation('D2 Place')">D2 Place</button>
+    <button onclick="updateLocation('長沙灣廣場')">長沙灣廣場</button>
+    <button onclick="updateLocation('D2 Place Two')">D2 Place Two</button>
+    <button onclick="updateLocation('泓景匯')">泓景匯</button>
+  </div>
+  <div id="status">現時人流：未知</div>
+  <div id="map-container">
+    <iframe id="wazeMap" src="https://embed.waze.com/iframe?zoom=16&lat=22.338&lon=114.151" width="100%" height="100%"></iframe>
+  </div>
+
+  <script>
+    const proxyUrl = "https://crowdwazed.ctakwah.workers.dev";
+    const locationCoords = {
+      "荔枝角站出口 A": { lat: 22.3375, lon: 114.1485 },
+      "D2 Place": { lat: 22.3378, lon: 114.1482 },
+      "長沙灣廣場": { lat: 22.3386, lon: 114.1538 },
+      "D2 Place Two": { lat: 22.3384, lon: 114.1494 },
+      "泓景匯": { lat: 22.3369, lon: 114.1535 }
+    };
+
+    function speak(text) {
+      if (!window.speechSynthesis) return;
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = "zh-HK";
+      window.speechSynthesis.speak(utterance);
+    }
+
+    async function updateLocation(locationName) {
+      const coords = locationCoords[locationName];
+      if (!coords) return;
+
+      document.getElementById("wazeMap").src =
+        `https://embed.waze.com/iframe?zoom=17&lat=${coords.lat}&lon=${coords.lon}`;
+
+      document.getElementById("status").innerText = `現時 ${locationName} 人流查詢中...`;
+
+      try {
+        let retries = 0;
+        let data;
+        do {
+          const res = await fetch(`${proxyUrl}?location=${encodeURIComponent(locationName)}`);
+          data = await res.json();
+          if (data.status === "Pending") {
+            retries++;
+            await new Promise(r => setTimeout(r, 2000));
+          } else {
+            break;
+          }
+        } while (retries < 5);
+
+        let statusText = "未知";
+        if (data.status === "Success" && data.result && data.result.current_popularity !== undefined) {
+          const pop = data.result.current_popularity;
+          if (pop > 80) statusText = "高峰期";
+          else if (pop > 40) statusText = "正常";
+          else statusText = "疏落";
+        }
+
+        const fullText = `現時 ${locationName} 人流為：${statusText}`;
+        document.getElementById("status").innerText = fullText;
+        speak(fullText);
+      } catch (e) {
+        document.getElementById("status").innerText = `現時 ${locationName} 人流：錯誤`;
+        speak(`無法查詢 ${locationName} 的人流資料`);
+      }
+    }
+  </script>
+</body>
+</html>
