@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>荔枝角人流 + Waze 地圖</title>
+<style>
+body {
+font-family: "Microsoft JhengHei", sans-serif;
+margin: 0;
+padding: 0;
+}
+#map {
+width: 100%;
+height: 60vh;
+border: none;
+}
+#info {
+padding: 15px;
+text-align: center;
+font-size: 1.4em;
+font-weight: bold;
+}
+#buttons {
+display: flex;
+flex-wrap: wrap;
+justify-content: center;
+padding: 10px;
+}
+.btn {
+margin: 6px;
+padding: 10px 18px;
+font-size: 1em;
+cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div id="info">載入中…</div>
+<div id="buttons"></div>
+<iframe id="map"></iframe>
+
+<script>
+const proxyUrl = "https://crowdwazed.ctakwah.workers.dev/?location="; // <- ✅ 修改這一行為你自己的 Worker URL
+const locations = {
+"荔枝角站出口 A": { lat: 22.3375, lon: 114.1483 },
+"D2 Place": { lat: 22.3378, lon: 114.1472 },
+"長沙灣廣場": { lat: 22.3383, lon: 114.1512 },
+"D2 Place Two": { lat: 22.3389, lon: 114.1493 },
+"泓景匯": { lat: 22.3370, lon: 114.1438 }
+};
+
+const locationNames = Object.keys(locations);
+const info = document.getElementById("info");
+const map = document.getElementById("map");
+const buttons = document.getElementById("buttons");
+
+let currentIndex = 0;
+
+// 語音提示功能
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(msg);
+}
+
+function showMap(lat, lon, placeName) {
+const mapURL = `https://embed.waze.com/iframe?zoom=16&lat=${lat}&lon=${lon}&pin=1&q=${encodeURIComponent(placeName)}`;
+map.src = mapURL;
+}
+
+async function fetchData(locationName) {
+const url = proxyUrl + encodeURIComponent(locationName);
+try {
+const res = await fetch(url);
+const data = await res.json();
+
+if (data.status === "Pending") {
+info.innerText = `等待資料中：${locationName}...`;
+setTimeout(() => fetchData(locationName), 3000); // 每 3 秒重試
+return;
+}
+
+const popularity = data?.data?.popular_times?.[0]?.status || "未知";
+info.innerText = `${locationName}：${popularity}`;
+speak(`${locationName} 人流為 ${popularity}`);
+} catch (e) {
+info.innerText = `❌ 無法取得 ${locationName} 資料`;
+console.error(e);
+}
+}
+
+function loadLocation(index) {
+const name = locationNames[index];
+const { lat, lon } = locations[name];
+showMap(lat, lon, name);
+fetchData(name);
+}
+
+// 輪詢功能
+function autoCycle() {
+loadLocation(currentIndex);
+currentIndex = (currentIndex + 1) % locationNames.length;
+setTimeout(autoCycle, 18000); // 每 18 秒換一個地點
+}
+
+// 初始化按鈕
+locationNames.forEach((name, i) => {
+const btn = document.createElement("button");
+btn.innerText = name;
+btn.className = "btn";
+btn.onclick = () => {
+currentIndex = i;
+loadLocation(i);
+};
+buttons.appendChild(btn);
+});
+
+// 開始自動輪查
+autoCycle();
+</script>
+</body>
+</html>
