@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>荔枝角人流＋即時天氣與雨量預報</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 1em; background: #e2f2f5; }
+#topbar {
+position: fixed;
+top: 0; left: 0; right: 0;
+background: #f0f0f0;
+box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+z-index: 100;
+padding: 10px;
+font-size: 16px;
+}
+select {
+width: 100%; padding: 8px;
+font-size: 1em; margin: 0.5em 0;
+}
+iframe {
+width: 100%; height: 280px;
+border: none;
+border-radius: 6px;
+}
+</style>
+</head>
+<body>
+<div id="topbar">
+<span id="winfo">🌤 正在讀取天氣資料...</span>
+</div>
+
+<div id="content" style="margin-top: 70px;">
+<h2>📍 荔枝角人流＋即時天氣與雨量預報</h2>
+<select id="loc">
+<option disabled selected>選擇地點觀察區</option>
+<option value="A">D1 Place One</option>
+<option value="B">D2 Place Two</option>
+</select>
+
+<p>📍 地點：<span id="locname">（未選擇）</span></p>
+<p>📡 最新天氣：</p>
+<div id="crowdInfo">🕒 讀取中...</div>
+<div id="waze" style="margin-top:1em">
+<iframe src="" id="mapFrame"></iframe>
+</div>
+</div>
+
+<script>
+const workerBase = "https://crowdwazefr.ctakwah.workers.dev";
+const coords = {
+A: [22.3378, 114.1472],
+B: [22.3369, 114.1518]
+};
+const locNames = {
+A: "D1 Place One",
+B: "D2 Place Two"
+};
+
+async function loadWeather() {
+const r = await fetch(`${workerBase}?mode=weather`);
+const d = await r.json();
+
+const rain = d.rainfall?.find(e => e.stationEng === "Kwai Chung");
+const rainNow = rain?.max || 0;
+
+let warn = "☁️ 無特別降雨預警。";
+if (rainNow > 5) warn = "🌧️ 20分鐘後可能有中雨（" + rainNow + "mm），建議帶備雨具！";
+
+document.getElementById("winfo").textContent =
+`天氣：${d.rh.temperature}°C，濕度 ${d.rh.humidity}%。${warn}`;
+}
+
+async function loadCrowd(loc) {
+const r = await fetch(`${workerBase}?mode=crowd&location=${loc}`);
+const d = await r.json();
+document.getElementById("crowdInfo").innerHTML = `🚦目前人流情況：<b>${d.status}</b>`;
+}
+
+document.getElementById("loc").addEventListener("change", e => {
+const loc = e.target.value;
+document.getElementById("locname").textContent = locNames[loc];
+document.getElementById("mapFrame").src = `https://embed.waze.com/iframe?zoom=16&lat=${coords[loc][0]}&lon=${coords[loc][1]}&pin=1`;
+loadCrowd(loc);
+});
+
+loadWeather();
+</script>
+</body>
+</html>
