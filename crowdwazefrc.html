@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>荔枝角人流 + 天氣 + Waze</title>
+<style>
+body { font-family: sans-serif; padding: 20px; }
+#map { width: 100%; height: 300px; margin-top: 10px; }
+select, button { padding: 8px; font-size: 16px; }
+.section { margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<div class="section">
+<h3>🌦 天氣資訊</h3>
+<div id="weather">載入中...</div>
+</div>
+
+<div class="section">
+<h3>👥 人流情況</h3>
+<select id="location">
+<option>D2 Place Two</option>
+<option>V Walk</option>
+<option>荔枝角港鐵站</option>
+<option>長沙灣廣場</option>
+<option>宇晴匯商場</option>
+</select>
+<div id="crowd">目前人流：未知</div>
+</div>
+
+<div id="map">
+<iframe id="wazeFrame" width="100%" height="300" frameborder="0" src=""></iframe>
+</div>
+
+<script>
+const apiBase = "https://crowdwazefrb.ctakwah.workers.dev/";
+const locSelect = document.getElementById("location");
+const crowdDiv = document.getElementById("crowd");
+const weatherDiv = document.getElementById("weather");
+const wazeFrame = document.getElementById("wazeFrame");
+
+async function fetchWeather() {
+try {
+const res = await fetch(`${apiBase}?mode=weather`);
+const data = await res.json();
+const temp = data.rh.value + "°C";
+const rain = data.rainfall.find(r => r.place.includes("荔枝角"))?.max || "0";
+const warning = data.warn?.details?.map(w => w.contents[0].text).join("；") || "無警告";
+
+weatherDiv.innerHTML = `
+🌡 溫度：${temp}<br/>
+☔️ 降雨量：${rain} mm<br/>
+⚠️ 警告：${warning}
+`;
+
+if (parseFloat(rain) > 5) {
+const utterance = new SpeechSynthesisUtterance(`注意：荔枝角地區降雨量為 ${rain} 毫米，請注意安全`);
+utterance.lang = 'zh-HK';
+speechSynthesis.speak(utterance);
+}
+} catch (e) {
+weatherDiv.innerText = "無法載入天氣資訊";
+}
+}
+
+async function fetchCrowd() {
+const location = locSelect.value;
+try {
+const res = await fetch(`${apiBase}?mode=crowd&location=${encodeURIComponent(location)}`);
+const data = await res.json();
+const place = data[0];
+const status = place.populartimes?.currentPopularity || "未知";
+crowdDiv.innerText = `目前人流：${status}`;
+} catch (e) {
+crowdDiv.innerText = "目前人流：載入失敗";
+}
+}
+
+function updateMap() {
+const loc = locSelect.value;
+const maps = {
+"D2 Place Two": [22.335, 114.154],
+"V Walk": [22.336, 114.151],
+"荔枝角港鐵站": [22.3366, 114.149],
+"長沙灣廣場": [22.3363, 114.152],
+"宇晴匯商場": [22.3348, 114.148]
+};
+const [lat, lon] = maps[loc] || [22.335, 114.154];
+wazeFrame.src = `https://embed.waze.com/iframe?zoom=16&lat=${lat}&lon=${lon}&pin=1`;
+}
+
+locSelect.addEventListener("change", () => {
+fetchCrowd();
+updateMap();
+});
+
+fetchWeather();
+fetchCrowd();
+updateMap();
+</script>
+</body>
+</html>
