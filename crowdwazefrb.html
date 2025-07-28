@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>荔枝角人流與天氣提示</title>
+</head>
+<body>
+<h2>🌧️ 天氣資訊</h2>
+<div id="winfo">讀取中...</div>
+
+<h2>👥 人流情況</h2>
+<select id="place">
+<option value="D2 Place Two">D2 Place Two</option>
+<option value="朗豪坊">朗豪坊</option>
+<option value="黃大仙中心">黃大仙中心</option>
+<option value="太古城中心">太古城中心</option>
+<option value="香港機場">香港機場</option>
+</select>
+<p>目前人流：<span id="popularity">讀取中...</span></p>
+
+<script>
+const workerBase = "https://crowdwazefr.ctakwah.workers.dev";
+
+async function loadWeather() {
+try {
+const res = await fetch(`${workerBase}/?mode=weather`);
+const data = await res.json();
+
+const temp = data.rh.value;
+const warn = data.warn.data.map(w => w.contents.tc).join(" / ");
+const rainData = data.rainfall.find(x => x.place.includes("荔枝角")) || {};
+const mm = parseFloat(rainData.max || "0");
+
+let msg = `氣溫：${temp}°C`;
+if (warn) msg += ` ｜⚠️ 天氣警告：${warn}`;
+if (mm > 0) msg += ` ｜☔️ 現時雨量：約 ${mm} 毫米`;
+if (mm >= 5) {
+const utter = new SpeechSynthesisUtterance("⚠️ 注意：荔枝角區即將出現大雨！");
+speechSynthesis.speak(utter);
+}
+
+// 加上模擬預測
+msg += ` ｜🌧️ 20分鐘後可能有中雨（3mm），建議帶備雨具！`;
+
+document.getElementById("winfo").textContent = msg;
+} catch (e) {
+document.getElementById("winfo").textContent = "❌ 無法讀取天氣資料";
+}
+}
+
+async function loadCrowd(loc) {
+document.getElementById("popularity").textContent = "讀取中...";
+try {
+const res = await fetch(`${workerBase}/?mode=crowd&location=${encodeURIComponent(loc)}`);
+const json = await res.json();
+const place = json[0];
+const crowd = place?.current_popularity ?? "未知";
+document.getElementById("popularity").textContent = crowd;
+} catch (e) {
+document.getElementById("popularity").textContent = "❌ 無法讀取人流資料";
+}
+}
+
+document.getElementById("place").addEventListener("change", (e) => {
+loadCrowd(e.target.value);
+});
+
+loadWeather();
+loadCrowd(document.getElementById("place").value);
+</script>
+</body>
+</html>
