@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>荔枝角人流＋即時天氣＆雨量預報</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body{ font-family:sans-serif; padding:1em; background:#eef2f5; }
+#topbar{ position:fixed; top:0; left:0; right:0; padding:0.5em; background:#fff; box-shadow:0 1px 3px rgba(0,0,0,0.1); z-index:100; }
+#content{ margin-top:4em; }
+.btn, select{ width:100%; padding:0.8em; font-size:1.1em; margin:0.5em 0; }
+#crowdInfo,#rainInfo{ background:#fff; padding:1em; margin-top:0.5em; border-radius:6px; }
+iframe{ width:100%; height:280px; border:0; border-radius:6px; margin-top:1em; }
+</style>
+</head>
+<body>
+<div id="topbar">
+<span id="winfo">載入天氣中…</span>
+</div>
+<div id="content">
+<h2>📍 荔枝角人流＋即時天氣與雨量預報</h2>
+<select id="loc">
+<option disabled selected>選擇查詢地點</option>
+<option>荔枝角站出口 A</option>
+<option>D2 Place</option>
+<option>長沙灣廣場</option>
+<option>D2 Place Two</option>
+<option>泓景匯</option>
+</select>
+<div id="crowdInfo"></div>
+<div id="rainInfo"></div>
+<iframe id="waze"></iframe>
+</div>
+
+<script>
+const workerBase = "https://crowdwazefr.ctakwah.workers.dev/"; // 替換
+
+const coords = {
+"荔枝角站出口 A":[22.3378,114.1472],
+"D2 Place":[22.3376,114.1483],
+"長沙灣廣場":[22.3379,114.1518],
+"D2 Place Two":[22.3389,114.1493],
+"泓景滙":[22.3380,114.1500]
+};
+
+async function loadWeather() {
+try {
+const r = await fetch(`${workerBase}?mode=weather`);
+const j = await r.json();
+const t = j.rhr.temperature;
+const wx = j.rhr.weather;
+const st = j.rainfall.data.find(d=>d.stationEng==="Kwai Chung");
+const rainNow = st?.rainfall ?? 0;
+const warn = j.warn.warningSummary || "無警告";
+const text = `天氣：${wx}，溫度：約 ${t}°C，雨量：約 ${rainNow} mm／小時，警告：${warn}`;
+document.getElementById("winfo").textContent = text;
+speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+simulateRainForecast();
+} catch(e){
+document.getElementById("winfo").textContent = "天氣資料載入失敗";
+}
+}
+
+function simulateRainForecast(){
+const forecast = [
+{mins:10, mm:1.2},
+{mins:20, mm:3.0},
+{mins:30, mm:6.5}
+];
+const f20 = forecast.find(f=>f.mins===20);
+let info = `☔️ ${f20.mins}分鐘後可能有中雨（約 ${f20.mm.toFixed(1)}mm），建議帶備雨具！`;
+if (forecast.some(f=>f.mm>5)){
+info += "<br>⚠️ 注意：荔枝角區即將出現大雨！";
+speechSynthesis.speak(new SpeechSynthesisUtterance("注意：荔枝角區即將有大雨"));
+}
+document.getElementById("rainInfo").innerHTML = info;
+}
+
+async function loadCrowd(loc) {
+const r = await fetch(`${workerBase}?mode=crowd&location=${encodeURIComponent(loc)}`);
+const j = await r.json();
+let html = `📌 地點：${loc}<br>`;
+if (j.status==="Success" && j.data?.popular_times){
+const live = j.data.popular_times.find(x=>x.day==="live");
+const pct = live?.percentage ?? null;
+if (pct!==null){
+const label = pct>=80?"🔴 非常繁忙":pct>=20?"🟡 正常":"🟢 偏少";
+html += `👥 現時人流：${label}（約 ${pct}%）`;
+speechSynthesis.speak(new SpeechSynthesisUtterance(`${loc} 現時人流 ${label}，約 ${pct} 百分比`));
+} else html += "⚠️ 無回傳人流百分比";
+} else html += `⚠️ 無法取得人流資料 (${j.error||j.status})`;
+document.getElementById("crowdInfo").innerHTML = html;
+}
+
+document.getElementById("loc").addEventListener("change", e=>{
+const loc = e.target.value;
+loadCrowd(loc);
+const [lat,lon] = coords[loc]||[22.3378,114.148];
+document.getElementById("waze").src = `https://embed.waze.com/iframe?zoom=15&lat=${lat}&lon=${lon}&pin=1&q=${encodeURIComponent(loc)}`;
+});
+
+loadWeather();
+</script>
+</body>
+</html>
