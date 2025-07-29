@@ -37,9 +37,11 @@ const res = await fetch(`${workerURL}?mode=weather`);
 const data = await res.json();
 if (data.error) throw new Error(data.detail);
 
-const rain = data.rainfall.find(r => r.place === "荔枝角")?.max || "不詳";
+const rain = data.rain || "不詳";
 const temp = data.temperature + "°C";
-const warning = Object.keys(data.warnings).length > 0 ? "⚠️ 有天氣警告" : "☀️ 無天氣警告";
+const warning = Object.keys(data.warnings).length > 0
+? "⚠️ 有天氣警告"
+: "☀️ 無天氣警告";
 
 document.getElementById("weather").innerText =
 `荔枝角氣溫：${temp}｜雨量：${rain}mm｜${warning}`;
@@ -67,8 +69,7 @@ const hour = now.getHours();
 const today = data.popularTimes?.[day === 0 ? 6 : day - 1];
 const crowd = today?.data?.[hour] ?? "不詳";
 
-document.getElementById("crowd").innerText =
-`目前人流：${crowd} 人`;
+document.getElementById("crowd").innerText = `目前人流：${crowd} 人`;
 
 const utter = new SpeechSynthesisUtterance(`${location}，目前人流大約 ${crowd} 人`);
 utter.lang = "zh-HK";
