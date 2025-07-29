@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>荔枝角人流 + Waze + 天氣預報</title>
+<style>
+body { font-family: "Microsoft JhengHei", sans-serif; padding: 1rem; }
+h2 { margin-top: 2rem; }
+iframe { width: 100%; height: 300px; border: none; }
+select, button { font-size: 1rem; padding: 5px; }
+</style>
+</head>
+<body>
+<h2>🌤️ 天氣資訊</h2>
+<div id="weather">載入中...</div>
+
+<h2>🚶‍♂️ 人流資訊</h2>
+<label for="locationSelect">選擇人流地點：</label>
+<select id="locationSelect">
+<option>D2 Place Two</option>
+<option>西九龍高鐵站</option>
+<option>羅湖站</option>
+<option>落馬洲站</option>
+<option>香港國際機場</option>
+</select>
+<div id="crowd">載入中...</div>
+
+<h2>🗺 Waze 路況地圖</h2>
+<iframe id="wazeMap" allowfullscreen></iframe>
+
+<script>
+const workerURL = "https://crowdwazefr2.ctakwah.workers.dev";
+
+async function fetchWeather() {
+try {
+const res = await fetch(`${workerURL}?mode=weather`);
+const data = await res.json();
+if (data.error) throw new Error(data.detail);
+
+const rain = data.rainfall.find(r => r.place === "荔枝角")?.max || "不詳";
+const temp = data.temperature + "°C";
+const warning = Object.keys(data.warnings).length > 0 ? "⚠️ 有天氣警告" : "☀️ 無天氣警告";
+
+document.getElementById("weather").innerText =
+`荔枝角氣溫：${temp}｜雨量：${rain}mm｜${warning}`;
+
+if (parseFloat(rain) > 5) {
+const audio = new SpeechSynthesisUtterance("⚠️ 荔枝角現時雨量超過 5 毫米，請注意安全。");
+audio.lang = "zh-HK";
+speechSynthesis.speak(audio);
+}
+} catch (err) {
+document.getElementById("weather").innerText = "無法載入天氣資訊";
+}
+}
+
+async function fetchCrowd(location) {
+try {
+const res = await fetch(`${workerURL}?mode=crowd&location=${encodeURIComponent(location)}`);
+const data = await res.json();
+if (data.error) throw new Error(data.detail);
+
+const now = new Date();
+const day = now.getDay(); // Sunday = 0
+const hour = now.getHours();
+
+const today = data.popularTimes?.[day === 0 ? 6 : day - 1];
+const crowd = today?.data?.[hour] ?? "不詳";
+
+document.getElementById("crowd").innerText =
+`目前人流：${crowd} 人`;
+
+const utter = new SpeechSynthesisUtterance(`${location}，目前人流大約 ${crowd} 人`);
+utter.lang = "zh-HK";
+speechSynthesis.speak(utter);
+} catch (err) {
+document.getElementById("crowd").innerText = "無法載入人流資訊";
+}
+}
+
+function updateWazeMap(location) {
+const coords = {
+"D2 Place Two": [22.3379, 114.1531],
+"西九龍高鐵站": [22.3047, 114.1619],
+"羅湖站": [22.5290, 114.1154],
+"落馬洲站": [22.5077, 114.0788],
+"香港國際機場": [22.3080, 113.9185]
+};
+const [lat, lon] = coords[location] || [22.3379, 114.1531];
+document.getElementById("wazeMap").src =
+`https://embed.waze.com/iframe?zoom=14&lat=${lat}&lon=${lon}&pin=1`;
+}
+
+// 初始載入
+const select = document.getElementById("locationSelect");
+fetchWeather();
+fetchCrowd(select.value);
+updateWazeMap(select.value);
+
+// 地點改變時更新
+select.addEventListener("change", () => {
+const loc = select.value;
+fetchCrowd(loc);
+updateWazeMap(loc);
+});
+</script>
+</body>
+</html>
