@@ -136,7 +136,7 @@ async function loadWeather() {
     const temp = data.temperature.data.find(d => d.place === "香港天文台");
     const humidity = data.humidity.data[0];
 
-    const iconEmoji = getWeatherIcon(iconCode);
+    const iconCode = data.icon[0];
     const iconUrl = `https://www.hko.gov.hk/images/HKOWxIconOutline/pic${iconCode}.png`;
 
     let warning = "☁ 無特別天氣警告";
@@ -148,7 +148,7 @@ async function loadWeather() {
 
     document.getElementById("weather").innerHTML = `
       <img src="${iconUrl}" alt="天氣圖示" style="height:24px;vertical-align:middle;"> 
-      天氣：${iconEmoji} ｜ 溫度 ${temp?.value || '未知'}°C ｜ 濕度 ${humidity?.value || '未知'}% <br>
+      天氣： ｜ 溫度 ${temp?.value || '未知'}°C ｜ 濕度 ${humidity?.value || '未知'}% <br>
       🔔 ${warning}`;
   } catch (e) {
     console.error(e);
