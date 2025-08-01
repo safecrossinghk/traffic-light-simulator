@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <title>荔枝角人流 + Waze 地圖</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    #result span.busy { color: red; font-weight: bold; }
+    #result span.normal { color: green; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>荔枝角人流 + Waze 地圖</h2>
+  <select onchange="onLocationChange(this.value)">
+    <option value="">請選擇地點</option>
+    <option value="荔枝角站出口 A">荔枝角站出口 A</option>
+    <option value="D2 Place">D2 Place</option>
+    <option value="D2 Place Two">D2 Place Two</option>
+    <option value="長沙灣廣場">長沙灣廣場</option>
+    <option value="泓景匯">泓景匯</option>
+  </select>
+  <p id="result">👈 請選擇地點</p>
+  <iframe id="wazeMap" width="100%" height="400" src="" allowfullscreen></iframe>
+  <hr />
+  <p id="weather">🌦 載入天氣資料中...</p>
+
+<script>
+const wazeUrls = {
+  "荔枝角站出口 A": "https://embed.waze.com/iframe?zoom=17&lat=22.338611&lon=114.149444&pin=1",
+  "D2 Place": "https://embed.waze.com/iframe?zoom=17&lat=22.338336&lon=114.149792&pin=1",
+  "長沙灣廣場": "https://embed.waze.com/iframe?zoom=17&lat=22.337858&lon=114.152069&pin=1",
+  "D2 Place Two": "https://embed.waze.com/iframe?zoom=17&lat=22.338877&lon=114.149200&pin=1",
+  "泓景匯": "https://embed.waze.com/iframe?zoom=17&lat=22.336136&lon=114.155181&pin=1"
+};
+
+async function fetchWithRetry(query, retries = 3, delay = 800) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      const res = await fetch("https://tiny-disk-0d7b.ctakwah.workers.dev/?query=" + encodeURIComponent(query));
+      if (!res.ok) throw new Error("HTTP error " + res.status);
+      const data = await res.json();
+      if (!data.success) throw new Error(data.message || "未知錯誤");
+      return data;
+    } catch (err) {
+      if (i === retries - 1) throw err;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+}
+
+async function queryLocation(name) {
+  document.getElementById("result").textContent = "⏳ 正在查詢中...";
+  document.getElementById("wazeMap").src = wazeUrls[name];
+
+  try {
+    const data = await fetchWithRetry(name);
+    let percentage = null;
+    if (Array.isArray(data.popular_times)) {
+      const live = data.popular_times.find(d => d.day === "live");
+      if (live && typeof live.percentage === "number") {
+        percentage = live.percentage;
+      }
+    }
+
+    if (percentage === null) {
+      document.getElementById("result").textContent = "⚠️ 無法取得即時人流資料。";
+      return;
+    }
+
+    let label = "🟢 偏少";
+    if (percentage >= 80) label = "🔴 非常繁忙";
+    else if (percentage >= 20) label = "🟡 正常";
+
+    document.getElementById("result").innerHTML =
+      `📌 地點：${name}<br>👥 現時人流：<span class="${percentage >= 70 ? 'busy' : 'normal'}">${label}（約 ${percentage}%）</span>`;
+
+    const msg = new SpeechSynthesisUtterance(`${name} 現時人流：${label}`);
+    msg.lang = "zh-HK";
+    speechSynthesis.speak(msg);
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("result").textContent = "❌ 查詢失敗，請稍後再試。";
+  }
+}
+
+function onLocationChange(value) {
+  if (value) queryLocation(value);
+}
+
+async function loadWeather() {
+  try {
+    const res = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrread&lang=tc");
+    const data = await res.json();
+
+    const temp = data.temperature.data.find(d => d.place === "香港天文台");
+    const humidity = data.humidity.data[0];
+
+    const iconCode = data.icon[0];
+    const iconUrl = `https://www.hko.gov.hk/images/HKOWxIconOutline/pic${iconCode}.png`;
+
+    let warning = "☁ 無特別天氣警告";
+    if (Array.isArray(data.warningMessage)) {
+      warning = data.warningMessage.join("，");
+    } else if (typeof data.warningMessage === "string" && data.warningMessage.trim() !== "") {
+      warning = data.warningMessage;
+    }
+
+    document.getElementById("weather").innerHTML = `
+      <img src="${iconUrl}" alt="天氣圖示" style="height:24px;vertical-align:middle;"> 
+      天氣： ｜ 溫度 ${temp?.value || '未知'}°C ｜ 濕度 ${humidity?.value || '未知'}% <br>
+      🔔 ${warning}`;
+
+    // 呼叫雨量預測
+    loadRainForecast();
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("weather").textContent = "⚠️ 無法載入天氣資料。";
+  }
+}
+
+async function loadRainForecast() {
+  try {
+    const res = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rainfall&lang=tc&rformat=json");
+    const data = await res.json();
+
+    const item = data.record.rainfall.data.find(d => d.place === "荔枝角");
+    const mm = parseFloat(item?.max || "0");
+
+    let forecastMsg = `☔️ 荔枝角雨量：${mm} 毫米`;
+    if (mm > 5) {
+      forecastMsg += "（⚠️ 可能有中至大雨）";
+
+      const msg = new SpeechSynthesisUtterance(`注意，荔枝角地區未來可能有中雨，雨量為 ${mm} 毫米。`);
+      msg.lang = "zh-HK";
+      speechSynthesis.speak(msg);
+    }
+
+    document.getElementById("weather").innerHTML += `<br>${forecastMsg}`;
+
+  } catch (e) {
+    console.error(e);
+    document.getElementById("weather").innerHTML += "<br>⚠️ 雨量預測失敗";
+  }
+}
+
+loadWeather();
+</script>
+</body>
+</html>
