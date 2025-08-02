@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>港鐵人流預測 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+body { font-family: sans-serif; padding: 30px; background: #f9f9f9; }
+h1 { color: #333; }
+#alert {
+color: red;
+font-weight: bold;
+font-size: 1.5em;
+margin-top: 20px;
+}
+</style>
+</head>
+<body>
+<h1>🚇 港鐵站人流預測 Dashboard</h1>
+<canvas id="flowChart" width="600" height="300"></canvas>
+<div id="alert"></div>
+
+<script>
+// 模擬資料（可用後端 API 提供動態數據）
+const peopleHistory = [280, 320, 410, 480, 510, 600]; // 過去數據
+const predicted = 650; // LSTM 預測結果
+const threshold = 500;
+
+// 初始化圖表
+const ctx = document.getElementById('flowChart').getContext('2d');
+const flowChart = new Chart(ctx, {
+type: 'line',
+data: {
+labels: ['-25min', '-20', '-15', '-10', '-5', 'Now'],
+datasets: [{
+label: '每 5 分鐘入站人數',
+data: peopleHistory,
+borderColor: 'blue',
+fill: false,
+tension: 0.3
+}, {
+label: '預測（+5 分鐘）',
+data: [...Array(5).fill(null), predicted],
+borderColor: 'red',
+borderDash: [5, 5],
+fill: false,
+pointRadius: 6
+}]
+}
+});
+
+// 語音播報功能（只在預測人數過多時觸發）
+function speak(text) {
+if ('speechSynthesis' in window) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = 'zh-HK'; // 廣東話 / 粵語語系（如未支援會 fallback 普通話）
+window.speechSynthesis.cancel(); // 停止之前的播報
+window.speechSynthesis.speak(msg);
+} else {
+console.log("⚠️ 此瀏覽器不支援語音播放功能。");
+}
+}
+
+// 顯示警告並播語音
+if (predicted > threshold) {
+const warning = `⚠️ 預測人流為 ${predicted} 人，請乘客分流使用其他出口。`;
+document.getElementById('alert').innerText = warning;
+speak(warning);
+}
+</script>
+</body>
+</html>
