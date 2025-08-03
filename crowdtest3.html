@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Rainfall Nowcast + Location Alert</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+<style>
+body { margin: 0; font-family: sans-serif; }
+#info { background: yellow; padding: 10px; font-weight: bold; text-align: center; }
+#map { height: 60vh; }
+</style>
+</head>
+<body>
+
+<div id="info">⏳ Loading location and rainfall data…</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+let map, marker;
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "en-US";
+speechSynthesis.speak(msg);
+}
+
+function parseCSV(text) {
+const lines = text.trim().split('\n');
+const data = [];
+for (let i = 1; i < lines.length; i++) {
+const parts = lines[i].split(',');
+const lat = parseFloat(parts[0]);
+const lon = parseFloat(parts[1]);
+const rain = parseFloat(parts[2]);
+if (!isNaN(lat) && !isNaN(lon) && !isNaN(rain)) {
+data.push({ lat, lon, rain });
+}
+}
+return data;
+}
+
+function findNearestGrid(userLat, userLon, gridData) {
+let minDist = Infinity;
+let nearest = null;
+for (const point of gridData) {
+const d = Math.pow(userLat - point.lat, 2) + Math.pow(userLon - point.lon, 2);
+if (d < minDist) {
+minDist = d;
+nearest = point;
+}
+}
+return nearest;
+}
+
+async function updateRainfall(lat, lon) {
+try {
+const res = await fetch("https://data.weather.gov.hk/weatherAPI/hko_data/gridded_rainfall_nowcast/Chi.csv");
+const text = await res.text();
+const gridData = parseCSV(text);
+const nearest = findNearestGrid(lat, lon, gridData);
+
+const rain = nearest.rain.toFixed(1);
+const msg = `🌧️ Rainfall forecast near your location: ${rain} mm (next 30 minutes)`;
+document.getElementById("info").innerText = msg;
+
+if (rain > 5) {
+speak("Heavy rain is expected near your location. Please stay alert.");
+}
+} catch (err) {
+document.getElementById("info").innerText = "⚠️ Failed to load rainfall data.";
+}
+}
+
+function initMap(lat, lon) {
+if (!map) {
+map = L.map('map').setView([lat, lon], 13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+marker = L.marker([lat, lon]).addTo(map).bindPopup("Your location").openPopup();
+} else {
+map.setView([lat, lon], 13);
+marker.setLatLng([lat, lon]);
+}
+}
+
+function startMonitoring() {
+navigator.geolocation.getCurrentPosition(pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+initMap(lat, lon);
+updateRainfall(lat, lon);
+
+// 每 5 分鐘自動更新
+setInterval(() => {
+updateRainfall(lat, lon);
+}, 5 * 60 * 1000);
+
+}, err => {
+document.getElementById("info").innerText = "❌ Unable to get your location.";
+});
+}
+
+startMonitoring();
+</script>
+</body>
+</html>
