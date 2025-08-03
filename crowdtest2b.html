@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>即時雨量臨近預報</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+#map { height: 60vh; }
+#info { padding: 1em; background: yellow; text-align: center; font-weight: bold; }
+</style>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+</head>
+<body>
+<div id="info">⏳ 正在載入你的位置與雨量資料…</div>
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+}
+
+function parseCSV(text) {
+const lines = text.trim().split('\n');
+const data = [];
+for (let i = 1; i < lines.length; i++) {
+const parts = lines[i].split(',');
+const lat = parseFloat(parts[0]);
+const lon = parseFloat(parts[1]);
+const rain = parseFloat(parts[2]);
+data.push({ lat, lon, rain });
+}
+return data;
+}
+
+function findNearestGrid(userLat, userLon, gridData) {
+let minDist = Infinity;
+let nearest = null;
+for (const point of gridData) {
+const d = Math.pow(userLat - point.lat, 2) + Math.pow(userLon - point.lon, 2);
+if (d < minDist) {
+minDist = d;
+nearest = point;
+}
+}
+return nearest;
+}
+
+async function run() {
+const res = await fetch("https://data.weather.gov.hk/weatherAPI/hko_data/gridded_rainfall_nowcast/Chi.csv"); // 改為最新 CSV API 連結
+const text = await res.text();
+const gridData = parseCSV(text);
+
+navigator.geolocation.getCurrentPosition(pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+
+const map = L.map('map').setView([lat, lon], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '© OpenStreetMap contributors'
+}).addTo(map);
+L.marker([lat, lon]).addTo(map).bindPopup("你的位置").openPopup();
+
+const nearest = findNearestGrid(lat, lon, gridData);
+const msg = `🌧️ 你附近未來半小時雨量預測：約 ${nearest.rain.toFixed(1)} mm`;
+document.getElementById("info").innerText = msg;
+
+if (nearest.rain > 5) {
+speak("你附近未來可能有大雨，請留意天氣變化");
+}
+}, () => {
+document.getElementById("info").innerText = "❌ 無法取得你的位置";
+});
+}
+
+run();
+</script>
+</body>
+</html>
