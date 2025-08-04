@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>雨量預測提示</title>
+<script>
+const workerUrl = "https://crowdtest3b.ctakwah.workers.dev/"; // ← 改成你的 Worker 連結
+
+function getNearestPoint(lat, lon, data) {
+let nearest = null, minDist = Infinity;
+for (const row of data) {
+const [station, rlat, rlon, rain] = row;
+const d = Math.sqrt((lat - rlat)**2 + (lon - rlon)**2);
+if (d < minDist) {
+minDist = d;
+nearest = { station, rain: parseFloat(rain) };
+}
+}
+return nearest;
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK"; // 中文（香港），可改 "zh-CN" 普通話 或 "en-US"
+window.speechSynthesis.speak(msg);
+}
+
+async function fetchRainData(lat, lon) {
+try {
+const res = await fetch(workerUrl);
+const text = await res.text();
+const rows = text.trim().split("\n").slice(2).map(line => {
+const parts = line.split(",");
+return [parts[0], parseFloat(parts[1]), parseFloat(parts[2]), parseFloat(parts[3])];
+});
+
+const nearest = getNearestPoint(lat, lon, rows);
+document.getElementById("output").textContent = `地點：${nearest.station}，預測雨量：${nearest.rain} 毫米`;
+
+if (nearest.rain > 5) {
+speak("⚠️ 未來半小時可能有大雨，請小心。");
+}
+} catch (e) {
+document.getElementById("output").textContent = "❌ 無法讀取雨量資料";
+}
+}
+
+function updateLocationAndData() {
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+
+// 顯示地圖標記
+const map = L.map('map').setView([lat, lon], 12);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+L.marker([lat, lon]).addTo(map).bindPopup("你的位置").openPopup();
+
+fetchRainData(lat, lon);
+});
+}
+}
+
+window.onload = () => {
+updateLocationAndData();
+setInterval(updateLocationAndData, 5 * 60 * 1000); // 每 5 分鐘更新
+};
+</script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+<h2>🌧️ 香港雨量預測提示</h2>
+<div id="output">讀取中…</div>
+<div id="map" style="height: 400px; margin-top: 1em;"></div>
+</body>
+</html>
