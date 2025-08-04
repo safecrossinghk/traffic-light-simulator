@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>香港雨量預測提示</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+</head>
+<body>
+<h3>☔ 香港雨量預測提示</h3>
+<div id="map" style="height: 400px;"></div>
+<p id="info">正在定位...</p>
+
+<script>
+const workerUrl = 'https://crowdtest3c.ctakwah.workers.dev/'; // 請改成你部署後的網址
+
+let map, marker;
+
+function speakEnglish(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "en-US";
+window.speechSynthesis.speak(msg);
+}
+
+function fetchRainData(lat, lon) {
+fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
+.then(res => res.json())
+.then(data => {
+const { lat, lon, rainfall, timestamp } = data;
+document.getElementById("info").textContent =
+`時間：${timestamp}，預測雨量：${rainfall.toFixed(2)} 毫米`;
+
+if (rainfall > 5) {
+speakEnglish("Warning! Heavy rain is expected in your area.");
+}
+
+if (marker) map.removeLayer(marker);
+marker = L.marker([lat, lon]).addTo(map).bindPopup("你的位置").openPopup();
+map.setView([lat, lon], 12);
+})
+.catch(err => {
+document.getElementById("info").textContent = "讀取雨量資料失敗：" + err;
+});
+}
+
+function init() {
+map = L.map("map").setView([22.3, 114.2], 10);
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+maxZoom: 18,
+}).addTo(map);
+
+if ("geolocation" in navigator) {
+navigator.geolocation.getCurrentPosition(pos => {
+const { latitude, longitude } = pos.coords;
+fetchRainData(latitude, longitude);
+
+// 每 5 分鐘更新
+setInterval(() => {
+fetchRainData(latitude, longitude);
+}, 5 * 60 * 1000);
+}, () => {
+document.getElementById("info").textContent = "無法獲取定位資料。";
+});
+} else {
+document.getElementById("info").textContent = "瀏覽器不支援定位功能。";
+}
+}
+
+window.onload = init;
+</script>
+</body>
+</html>
