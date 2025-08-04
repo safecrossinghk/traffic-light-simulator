@@ -13,7 +13,7 @@
 <p id="info">正在定位...</p>
 
 <script>
-const workerUrl = 'https://crowdtest3c.ctakwah.workers.dev/'; // 請改成你部署後的網址
+const workerUrl = 'https://crowdtest3c.ctakwah.workers.dev/; // ← 請改成你部署後的網址
 
 let map, marker;
 
@@ -27,6 +27,10 @@ function fetchRainData(lat, lon) {
 fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
 .then(res => res.json())
 .then(data => {
+if (!data || data.rainfall === undefined) {
+throw new Error("資料格式錯誤");
+}
+
 const { lat, lon, rainfall, timestamp } = data;
 document.getElementById("info").textContent =
 `時間：${timestamp}，預測雨量：${rainfall.toFixed(2)} 毫米`;
