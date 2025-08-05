@@ -47,32 +47,6 @@ attribution: '&copy; OpenStreetMap contributors'
 
 let marker;
 
-// 嘗試取得定位
-if (navigator.geolocation) {
-navigator.geolocation.getCurrentPosition(
-pos => {
-const lat = pos.coords.latitude;
-const lon = pos.coords.longitude;
-map.setView([lat, lon], 13);
-if (marker) marker.remove();
-marker = L.marker([lat, lon]).addTo(map);
-fetchForecast(lat, lon);
-},
-err => {
-// 定位失敗時 fallback 到香港中心
-console.warn("定位失敗，使用預設位置");
-const lat = 22.3;
-const lon = 114.2;
-map.setView([lat, lon], 11);
-marker = L.marker([lat, lon]).addTo(map);
-fetchForecast(lat, lon);
-},
-{ enableHighAccuracy: true }
-);
-} else {
-alert("此瀏覽器不支援定位功能");
-}
-
 function fetchForecast(lat, lon) {
 fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
 .then(res => res.json())
@@ -80,9 +54,9 @@ fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
 const alertDiv = document.getElementById('rain-alert');
 if (data && data.forecast) {
 const values = data.forecast.filter(v => typeof v === 'number');
-const futureRain = values.slice(1, 6); // 6~30分鐘（略過第一個：0~6分鐘）
+const futureRain = values.slice(1, 6); // 6~30分鐘（略過第1個）
 
-const threshold = 2.0; // mm 門檻
+const threshold = 2.0;
 const willRain = futureRain.some(val => val > threshold);
 
 if (willRain) {
@@ -105,6 +79,38 @@ function speak(text) {
 const msg = new SpeechSynthesisUtterance(text);
 msg.lang = 'en-US';
 speechSynthesis.speak(msg);
+}
+
+// 嘗試取得定位
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(
+pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+map.setView([lat, lon], 13);
+if (marker) marker.remove();
+marker = L.marker([lat, lon]).addTo(map);
+fetchForecast(lat, lon);
+},
+err => {
+console.warn("定位失敗，使用預設位置");
+const lat = 22.3;
+const lon = 114.2;
+map.setView([lat, lon], 11);
+if (marker) marker.remove();
+marker = L.marker([lat, lon]).addTo(map);
+fetchForecast(lat, lon); // ✅ fallback 時也呼叫
+},
+{ enableHighAccuracy: true }
+);
+} else {
+alert("此瀏覽器不支援定位功能");
+const lat = 22.3;
+const lon = 114.2;
+map.setView([lat, lon], 11);
+if (marker) marker.remove();
+marker = L.marker([lat, lon]).addTo(map);
+fetchForecast(lat, lon); // ✅ fallback 時也呼叫
 }
 </script>
 </body>
