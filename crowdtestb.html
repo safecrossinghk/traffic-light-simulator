@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>荔枝角人流 + Waze 地圖</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<style>
+body {
+font-family: Arial, sans-serif;
+margin: 0;
+padding: 0;
+}
+#weather {
+background: #f0f8ff;
+padding: 10px;
+font-size: 16px;
+}
+iframe {
+border: none;
+width: 100%;
+height: 600px;
+}
+</style>
+</head>
+<body>
+<div id="weather">載入天氣資料中...</div>
+<iframe
+src="https://embed.waze.com/iframe?zoom=14&lat=22.337&lon=114.149&pin=1"
+allowfullscreen
+></iframe>
+
+<script>
+async function fetchRainForecast() {
+try {
+const response = await fetch("https://data.weather.gov.hk/weatherAPI/opendata/weather.php?dataType=rhrforecast&lang=tc");
+const data = await response.json();
+const rainForecast = data?.rainfall?.data?.find(item => item.place === "荔枝角");
+
+let rainText = "未有荔枝角雨量資料";
+let rainAmount = 0;
+
+if (rainForecast && rainForecast.max) {
+rainAmount = parseFloat(rainForecast.max);
+rainText = `預測荔枝角未來一小時雨量：約 ${rainAmount} 毫米。`;
+}
+
+document.getElementById("weather").innerText = rainText;
+
+if (rainAmount > 5) {
+const msg = new SpeechSynthesisUtterance("⚠️ 注意：荔枝角區未來一小時有大雨，預計雨量超過五毫米，請準備雨具。");
+msg.lang = "zh-HK";
+speechSynthesis.speak(msg);
+}
+} catch (error) {
+document.getElementById("weather").innerText = "無法載入天氣資料。";
+console.error("天氣資料錯誤：", error);
+}
+}
+
+fetchRainForecast();
+</script>
+</body>
+</html>
