@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>🌧️ 香港雨量臨近預測</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body {
+font-family: "Helvetica Neue", sans-serif;
+margin: 0;
+padding: 0;
+background: #f0f8ff;
+color: #333;
+text-align: center;
+}
+h1 {
+font-size: 1.4em;
+margin: 1em 0 0.5em;
+}
+#map {
+height: 300px;
+margin: 0 10px;
+border-radius: 8px;
+border: 1px solid #ccc;
+}
+#rain-alert {
+margin: 1em;
+font-size: 1.2em;
+font-weight: bold;
+}
+</style>
+</head>
+<body>
+<h1>🌂 香港雨量臨近預測</h1>
+<div id="map"></div>
+<div id="rain-alert">⏳ 正在讀取預測資料...</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const workerUrl = 'https://crowdtest5o.ctakwah.workers.dev/'; // ⬅️ 請改成你自己的 Worker 網址
+
+const map = L.map('map').setView([22.3, 114.2], 11); // 香港預設位置
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let marker;
+
+// 嘗試取得定位
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(
+pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+map.setView([lat, lon], 13);
+if (marker) marker.remove();
+marker = L.marker([lat, lon]).addTo(map);
+fetchForecast(lat, lon);
+},
+err => {
+// 定位失敗時 fallback 到香港中心
+console.warn("定位失敗，使用預設位置");
+const lat = 22.3;
+const lon = 114.2;
+map.setView([lat, lon], 11);
+marker = L.marker([lat, lon]).addTo(map);
+fetchForecast(lat, lon);
+},
+{ enableHighAccuracy: true }
+);
+} else {
+alert("此瀏覽器不支援定位功能");
+}
+
+function fetchForecast(lat, lon) {
+fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
+.then(res => res.json())
+.then(data => {
+const alertDiv = document.getElementById('rain-alert');
+if (data && data.forecast) {
+const values = data.forecast.filter(v => typeof v === 'number');
+const futureRain = values.slice(1, 6); // 6~30分鐘（略過第一個：0~6分鐘）
+
+const threshold = 2.0; // mm 門檻
+const willRain = futureRain.some(val => val > threshold);
+
+if (willRain) {
+alertDiv.innerText = "⚠️ 即將有雨，請準備雨具";
+speak("Rain expected in the next 30 minutes.");
+} else {
+alertDiv.innerText = "☀️ 未有顯著降雨預測";
+}
+} else {
+alertDiv.innerText = "⚠️ 無法讀取預測資料";
+}
+})
+.catch(err => {
+console.error("讀取預測錯誤", err);
+document.getElementById('rain-alert').innerText = "⚠️ 無法取得預測資料";
+});
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = 'en-US';
+speechSynthesis.speak(msg);
+}
+</script>
+</body>
+</html>
