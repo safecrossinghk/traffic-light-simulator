@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>🌧️ 香港雨量臨近預測</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body {
+font-family: "Helvetica Neue", sans-serif;
+margin: 0;
+padding: 0;
+background: #f0f8ff;
+color: #333;
+text-align: center;
+}
+h1 {
+font-size: 1.4em;
+margin: 1em 0 0.5em;
+}
+#map {
+height: 300px;
+margin: 0 10px;
+border-radius: 8px;
+border: 1px solid #ccc;
+}
+#rain-alert {
+margin: 1em;
+font-size: 1.2em;
+font-weight: bold;
+}
+#debug {
+font-size: 0.9em;
+color: #666;
+margin: 10px;
+white-space: pre-line;
+}
+</style>
+</head>
+<body>
+<h1>🌂 香港雨量臨近預測</h1>
+<div id="map"></div>
+<div id="rain-alert">⏳ 正在讀取預測資料...</div>
+<div id="debug">📡 準備中...</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const workerUrl = 'https://crowdtest6br.ctakwah.workers.dev/'; // ✅ 改成你自己 Cloudflare Worker 的網址
+
+const debug = (msg) => {
+const el = document.getElementById("debug");
+el.innerText = `[DEBUG] ${msg}`;
+};
+
+const map = L.map('map').setView([22.3, 114.2], 11);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+let marker;
+
+function setMarker(lat, lon) {
+if (marker) map.removeLayer(marker);
+marker = L.marker([lat, lon]).addTo(map);
+}
+
+function fetchForecast(lat, lon) {
+debug(`🌏 發送至 Worker...\nlat: ${lat}, lon: ${lon}`);
+fetch(`${workerUrl}?lat=${lat}&lon=${lon}`)
+.then(res => {
+if (!res.ok) throw new Error(`HTTP error ${res.status}`);
+return res.json();
+})
+.then(data => {
+console.log("API 回傳資料：", data);
+const alertDiv = document.getElementById('rain-alert');
+
+if (data && typeof data.immediateRain === "number") {
+const rain = data.immediateRain.toFixed(1);
+if (data.rainExpected) {
+alertDiv.innerText = `⚠️ 即時雨量 ${rain}mm，請準備雨具`;
+speak("⚠️ 你附近有降雨");
+} else {
+alertDiv.innerText = `☀️ 即時雨量 ${rain}mm，暫時無需擔心`;
+}
+
+debug(`✅ 成功取得回應\n即時雨量: ${rain}mm\n雨量預期: ${data.rainExpected}`);
+} else {
+alertDiv.innerText = "⚠️ 無法讀取預測資料";
+debug("⚠️ Worker 回傳資料格式錯誤");
+}
+})
+.catch(err => {
+console.error("讀取預測錯誤", err);
+document.getElementById('rain-alert').innerText = "⚠️ 無法取得預測資料";
+debug(`❌ Worker 無法連線或出錯\n錯誤訊息：${err.message}`);
+});
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = 'zh-HK';
+speechSynthesis.speak(msg);
+}
+
+function initLocation() {
+if (!navigator.geolocation) {
+const fallbackLat = 22.3;
+const fallbackLon = 114.2;
+map.setView([fallbackLat, fallbackLon], 11);
+setMarker(fallbackLat, fallbackLon);
+fetchForecast(fallbackLat, fallbackLon);
+debug("❌ 此瀏覽器不支援定位，已使用預設座標");
+return;
+}
+
+navigator.geolocation.getCurrentPosition(
+pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+console.log("✅ 取得定位：", lat, lon);
+map.setView([lat, lon], 13);
+setMarker(lat, lon);
+fetchForecast(lat, lon);
+debug(`📍 成功定位\nlat: ${lat}\nlon: ${lon}`);
+},
+err => {
+console.warn("⚠️ 定位失敗：", err);
+const fallbackLat = 22.3;
+const fallbackLon = 114.2;
+map.setView([fallbackLat, fallbackLon], 11);
+setMarker(fallbackLat, fallbackLon);
+fetchForecast(fallbackLat, fallbackLon);
+debug(`❌ 定位失敗，已用預設位置\n錯誤碼：${err.code}\n原因：${err.message}`);
+},
+{ enableHighAccuracy: true, timeout: 8000 }
+);
+}
+
+initLocation();
+</script>
+</body>
+</html>
