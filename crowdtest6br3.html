@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>香港雨量臨近預測</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body { font-family: sans-serif; text-align: center; background: #eef6ff; margin: 0; padding: 0; }
+#map { height: 300px; width: 90%; margin: 10px auto; border-radius: 10px; }
+.status { margin-top: 10px; font-size: 16px; }
+.loading { color: #888; }
+.error { color: red; }
+.success { color: green; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>☔ 香港雨量臨近預測</h2>
+<div id="map"></div>
+<div class="status loading" id="status">📍 正在定位中...</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const statusEl = document.getElementById('status');
+let map, marker;
+
+function updateStatus(msg, className = "loading") {
+statusEl.textContent = msg;
+statusEl.className = `status ${className}`;
+}
+
+function fetchRainForecast(lat, lon, retryCount = 0) {
+const workerURL = `https://crowdtest6br2.ctakwah.workers.dev/?lat=${lat}&lon=${lon}`;
+updateStatus("🌧️ 正在載入預測資料...");
+
+fetch(workerURL)
+.then(res => {
+if (!res.ok) throw new Error(`Worker 錯誤代碼 ${res.status}`);
+return res.json();
+})
+.then(data => {
+if (data.rainExpected) {
+updateStatus(`⚠️ ${data.message}（${data.immediateRain} mm）`, "success");
+} else {
+updateStatus(`✅ ${data.message}`, "success");
+}
+})
+.catch(err => {
+if (retryCount < 2) {
+updateStatus(`🔁 嘗試重新取得資料中...`, "loading");
+setTimeout(() => fetchRainForecast(lat, lon, retryCount + 1), 2000);
+} else {
+updateStatus(`⚠️ 無法取得預測資料：${err.message}`, "error");
+}
+});
+}
+
+if (navigator.geolocation) {
+navigator.geolocation.getCurrentPosition(pos => {
+const lat = pos.coords.latitude;
+const lon = pos.coords.longitude;
+
+map = L.map('map').setView([lat, lon], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+maxZoom: 19
+}).addTo(map);
+
+marker = L.marker([lat, lon]).addTo(map)
+.bindPopup("你的位置").openPopup();
+
+fetchRainForecast(lat, lon);
+}, () => {
+updateStatus("❌ 無法取得定位", "error");
+});
+} else {
+updateStatus("❌ 瀏覽器不支援定位功能", "error");
+}
+</script>
+</body>
+</html>
