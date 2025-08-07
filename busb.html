@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>實時巴士追蹤（2B / 701A）</title>
+<style>
+html, body {
+margin: 0;
+padding: 0;
+height: 100%;
+font-family: sans-serif;
+}
+#map {
+height: 60%;
+width: 100%;
+}
+#info {
+padding: 10px;
+font-size: 1.1em;
+}
+#eta-list {
+list-style: none;
+padding: 0;
+}
+li {
+margin-bottom: 8px;
+}
+@media (max-width: 600px) {
+#info {
+font-size: 1em;
+}
+}
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU"></script>
+</head>
+<body>
+<div id="map"></div>
+<div id="info">
+<h2>🚌 巴士實時追蹤：2B / 701A</h2>
+<ul id="eta-list">
+<li>讀取中...</li>
+</ul>
+</div>
+
+<script>
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 14,
+center: { lat: 22.33, lng: 114.17 },
+});
+
+let marker = new google.maps.Marker({
+position: { lat: 22.33, lng: 114.17 },
+map,
+icon: "https://maps.google.com/mapfiles/ms/icons/bus.png",
+});
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = 'zh-HK';
+speechSynthesis.speak(utterance);
+}
+
+async function updateETA() {
+const stopList = document.getElementById("eta-list");
+stopList.innerHTML = "";
+
+// 模擬數據（你日後可接入真實 API）
+const simulatedStops = [
+{ name: "深水埗", eta: 2 },
+{ name: "旺角奶路臣街", eta: 6 },
+{ name: "油麻地", eta: 10 },
+];
+
+simulatedStops.forEach((stop) => {
+const li = document.createElement("li");
+li.textContent = `📍 ${stop.name}：${stop.eta} 分鐘後到達`;
+stopList.appendChild(li);
+
+if (stop.eta === 2) {
+speak(`巴士即將到達 ${stop.name}`);
+}
+});
+
+// 模擬 icon 移動
+const nextLat = 22.33 + Math.random() * 0.01;
+const nextLng = 114.17 + Math.random() * 0.01;
+marker.setPosition({ lat: nextLat, lng: nextLng });
+map.panTo({ lat: nextLat, lng: nextLng });
+}
+
+setInterval(updateETA, 10000); // 每 10 秒更新
+updateETA();
+</script>
+</body>
+</html>
