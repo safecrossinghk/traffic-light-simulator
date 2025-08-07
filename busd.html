@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>實時巴士追蹤（九巴 2B / 城巴 701A）</title>
+<style>
+html, body { margin:0; padding:0; height:100%; font-family:sans-serif; }
+#map { height:60%; width:100%; }
+#info { padding:10px; font-size:1.1em; }
+#eta-list { list-style:none; padding:0; }
+li { margin-bottom:8px; }
+select{font-size:1em; padding:5px;}
+@media (max-width:600px){ #info{font-size:0.9em;} }
+</style>
+<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU"></script>
+</head>
+<body>
+<div id="map"></div>
+<div id="info">
+<h2>🚌 實時追蹤：九巴 2B / 城巴 701A（雙向）</h2>
+<select id="route-select">
+<option value="kmb_2B_outbound">KMB 2B →</option>
+<option value="kmb_2B_inbound">KMB 2B ←</option>
+<option value="ctb_701A_forward">CTB 701A →</option>
+<option value="ctb_701A_return">CTB 701A ←</option>
+</select>
+<ul id="eta-list"><li>讀取資料中...</li></ul>
+</div>
+
+<script>
+const map = new google.maps.Map(document.getElementById("map"), {
+zoom: 14,
+center: { lat: 22.33, lng: 114.17 },
+});
+let busMarker = new google.maps.Marker({map, icon:"https://maps.google.com/mapfiles/ms/icons/bus.png"});
+function speak(text){ speechSynthesis.speak(new SpeechSynthesisUtterance(text)); }
+
+async function loadRoute(){
+const sel = document.getElementById("route-select").value.split("_");
+const [company, route, direction] = sel;
+const etaList = document.getElementById("eta-list");
+etaList.innerHTML = "<li>讀取中...</li>";
+
+try {
+let stops = [], etas = [];
+
+if (company === "kmb") {
+const resStops = await fetch(`https://data.etabus.gov.hk/v1/transport/kmb/route-stop/${route}/${direction}/1`).then(r=>r.json());
+stops = resStops.data;
+etas = await Promise.all(stops.map(s =>
+fetch(`https://data.etabus.gov.hk/v1/transport/kmb/eta/${s.stop}/${route}/1`).then(r=>r.json())
+));
+} else {
+// Citybus 模擬 API：實際應抓取 `/v1/transport/ctb/...`
+stops = [{name_tc:"模擬站1",lat:22.33,lng:114.17,stop:"S1"}];
+etas = [{data:[{eta_seq:1,eta:"2025-08-07T12:34:00+08:00"}]}];
+}
+
+etaList.innerHTML = "";
+stops.forEach((s,i) => {
+const etaInfo = etas[i]?.data?.[0];
+const etaMin = etaInfo ? Math.max(0,Math.round((new Date(etaInfo.eta)-Date.now())/60000)) : "–";
+const li = document.createElement("li");
+li.textContent = `${s.name_tc || s.name}: ${etaMin} 分鐘後到達`;
+etaList.appendChild(li);
+});
+
+const first = stops[0];
+busMarker.setPosition({ lat: first.lat || first.latitude, lng: first.lng || first.longitude });
+map.panTo(busMarker.getPosition());
+
+} catch (e) {
+etaList.innerHTML = "<li>🚫 資料讀取失敗</li>";
+console.error(e);
+}
+}
+
+document.getElementById("route-select").addEventListener("change", loadRoute);
+setInterval(loadRoute, 30000);
+loadRoute();
+</script>
+</body>
+</html>
