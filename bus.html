@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>KMB 2B / Citybus 701A Tracker</title>
+<meta charset="utf-8">
+<style>
+html, body, #map {
+height: 100%;
+margin: 0;
+padding: 0;
+}
+#info-box {
+position: absolute;
+top: 10px;
+left: 10px;
+z-index: 5;
+background: white;
+padding: 10px;
+border: 1px solid #ccc;
+}
+</style>
+</head>
+<body>
+<div id="info-box">
+<select id="route-select">
+<option value="kmb_2b">KMB 2B</option>
+<option value="ctb_701a">Citybus 701A</option>
+</select>
+<p id="eta-text">正在載入預報資料...</p>
+</div>
+<div id="map"></div>
+
+<script>
+const apiKey = "AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU";
+const script = document.createElement("script");
+script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=initMap`;
+script.defer = true;
+document.head.appendChild(script);
+
+let map;
+let markers = [];
+
+function initMap() {
+map = new google.maps.Map(document.getElementById("map"), {
+center: { lat: 22.3365, lng: 114.1491 },
+zoom: 13
+});
+loadRoute("kmb_2b");
+}
+
+document.getElementById("route-select").addEventListener("change", (e) => {
+clearMarkers();
+loadRoute(e.target.value);
+});
+
+function clearMarkers() {
+for (const m of markers) {
+m.setMap(null);
+}
+markers = [];
+}
+
+function loadRoute(routeCode) {
+let stops = [];
+if (routeCode === "kmb_2b") {
+stops = [
+{ name: "海達邨", lat: 22.334217, lng: 114.155245, eta: "3 分鐘" },
+{ name: "深水埗欽州街", lat: 22.330016, lng: 114.159659, eta: "7 分鐘" },
+{ name: "旺角洗衣街", lat: 22.319185, lng: 114.169382, eta: "11 分鐘" }
+];
+} else {
+stops = [
+{ name: "觀塘碼頭", lat: 22.311395, lng: 114.225368, eta: "2 分鐘" },
+{ name: "牛頭角道", lat: 22.319899, lng: 114.213978, eta: "5 分鐘" },
+{ name: "九龍灣企業廣場", lat: 22.323226, lng: 114.212774, eta: "9 分鐘" }
+];
+}
+document.getElementById("eta-text").innerText = "已載入 " + stops.length + " 個站點。";
+for (const stop of stops) {
+const marker = new google.maps.Marker({
+position: { lat: stop.lat, lng: stop.lng },
+map,
+label: stop.name
+});
+const infowindow = new google.maps.InfoWindow({
+content: `<b>${stop.name}</b><br>預計到達：${stop.eta}`
+});
+marker.addListener("click", () => {
+infowindow.open(map, marker);
+speak(`${routeCode === 'kmb_2b' ? '2B' : '701A'} 將於 ${stop.eta} 到達 ${stop.name}`);
+});
+markers.push(marker);
+}
+}
+
+function speak(text) {
+const msg = new SpeechSynthesisUtterance(text);
+msg.lang = "zh-HK";
+window.speechSynthesis.speak(msg);
+}
+</script>
+</body>
+</html>
