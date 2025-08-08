@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>定位與語音提示</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+body { font-family: sans-serif; padding: 20px; }
+#status { color: green; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>🔍 定位查詢範例</h2>
+<p id="status">正在嘗試取得您的位置...</p>
+
+<script>
+const fallbackLocation = { lat: 22.3364, lon: 114.1488 }; // 荔枝角
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = 'zh-HK';
+speechSynthesis.speak(utterance);
+}
+
+function updateStatus(text, color = 'green') {
+const status = document.getElementById('status');
+status.textContent = text;
+status.style.color = color;
+}
+
+function onSuccess(position) {
+const lat = position.coords.latitude;
+const lon = position.coords.longitude;
+updateStatus(`✅ 已取得位置：${lat.toFixed(5)}, ${lon.toFixed(5)}`);
+// 這裡可加載地圖或查詢天氣／雨量等功能
+}
+
+function onError(error) {
+updateStatus("❌ 未能取得定位，使用預設地點（荔枝角）", 'red');
+speak("請允許定位權限。現時使用預設地點。");
+
+// 使用 fallback（例如查詢荔枝角雨量）
+const lat = fallbackLocation.lat;
+const lon = fallbackLocation.lon;
+console.log("Fallback 位置：", lat, lon);
+}
+
+// 自動請求定位
+if ("geolocation" in navigator) {
+navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+enableHighAccuracy: true,
+timeout: 5000
+});
+} else {
+updateStatus("❌ 此瀏覽器不支援定位功能", 'red');
+speak("您的裝置不支援定位功能");
+}
+</script>
+</body>
+</html>
