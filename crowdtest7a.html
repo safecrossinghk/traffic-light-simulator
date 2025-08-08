@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8" />
+<title>香港雨量臨近預測</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+body { font-family: sans-serif; text-align: center; background: #eef6ff; margin: 0; padding: 0; }
+#map { height: 300px; width: 90%; margin: 10px auto; border-radius: 10px; }
+.status { margin-top: 10px; font-size: 16px; }
+.loading { color: #555; }
+.error { color: red; }
+.success { color: green; font-weight: bold; }
+</style>
+</head>
+<body>
+<h2>☔ 香港雨量臨近預測</h2>
+<div id="map"></div>
+<div class="status loading" id="status">📍 正在定位中...</div>
+
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+const fallbackLocation = { lat: 22.3364, lon: 114.1488 }; // 荔枝角
+const statusEl = document.getElementById('status');
+let map, marker;
+
+function speak(text) {
+const utterance = new SpeechSynthesisUtterance(text);
+utterance.lang = 'zh-HK';
+speechSynthesis.speak(utterance);
+}
+
+function updateStatus(msg, className = "loading") {
+statusEl.textContent = msg;
+statusEl.className = `status ${className}`;
+}
+
+function fetchWithTimeout(resource, options = {}) {
+const { timeout = 10000 } = options;
+const controller = new AbortController();
+const id = setTimeout(() => controller.abort(), timeout);
+return fetch(resource, {
+...options,
+signal: controller.signal
+}).finally(() => clearTimeout(id));
+}
+
+function fetchRainForecast(lat, lon, retryCount = 0) {
+const workerURL = `https://crowdtest6br2.ctakwah.workers.dev/?lat=${lat}&lon=${lon}`;
+updateStatus("🌧️ 正在載入預測資料...", "loading");
+
+fetchWithTimeout(workerURL, { timeout: 10000 })
+.then(res => {
+if (!res.ok) throw new Error(`Worker 錯誤代碼 ${res.status}`);
+return res.json();
+})
+.then(data => {
+if (data.rainExpected) {
+updateStatus(`⚠️ ${data.message}（${data.immediateRain} mm）`, "success");
+} else {
+updateStatus(`✅ ${data.message}`, "success");
+}
+})
+.catch(err => {
+if (retryCount < 2) {
+updateStatus(`🔁 嘗試重新取得資料中...`, "loading");
+setTimeout(() => fetchRainForecast(lat, lon, retryCount + 1), 2000);
+} else {
+updateStatus(`⚠️ 無法取得預測資料：${err.message}`, "error");
+}
+});
+}
+
+function initMapAndForecast(lat, lon) {
+map = L.map('map').setView([lat, lon], 14);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+maxZoom: 19
+}).addTo(map);
+
+marker = L.marker([lat, lon]).addTo(map)
+.bindPopup("你的位置").openPopup();
+
+fetchRainForecast(lat, lon);
+}
+
+function onSuccess(position) {
+const lat = position.coords.latitude;
+const lon = position.coords.longitude;
+updateStatus(`✅ 已取得位置：${lat.toFixed(5)}, ${lon.toFixed(5)}`, "success");
+initMapAndForecast(lat, lon);
+}
+
+function onError(error) {
+updateStatus("❌ 未能取得定位，使用預設地點（荔枝角）", "error");
+speak("請允許定位權限。現時使用預設地點。");
+initMapAndForecast(fallbackLocation.lat, fallbackLocation.lon);
+}
+
+// 自動請求定位
+if ("geolocation" in navigator) {
+navigator.geolocation.getCurrentPosition(onSuccess, onError, {
+enableHighAccuracy: true,
+timeout: 5000
+});
+} else {
+updateStatus("❌ 此瀏覽器不支援定位功能", "error");
+speak("您的裝置不支援定位功能");
+initMapAndForecast(fallbackLocation.lat, fallbackLocation.lon);
+}
+</script>
+</body>
+</html>
