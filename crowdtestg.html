@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>香港雨量臨近預報地圖</title>
+
+<!-- 引入 Leaflet.js 的 CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+crossorigin=""/>
+
+<!-- 引入 Leaflet.js 的 JavaScript -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+crossorigin=""></script>
+
+<style>
+body {
+font-family: sans-serif;
+margin: 0;
+padding: 0;
+display: flex;
+flex-direction: column;
+height: 100vh;
+}
+#map {
+height: 100%; /* 地圖佔滿剩餘空間 */
+width: 100%;
+flex-grow: 1; /* 讓地圖填滿可用空間 */
+}
+.controls {
+padding: 10px;
+background-color: #f2f2f2;
+border-bottom: 1px solid #ccc;
+text-align: center;
+}
+.controls label {
+margin-right: 10px;
+}
+.legend {
+padding: 6px 8px;
+font: 14px/16px Arial, Helvetica, sans-serif;
+background: white;
+background: rgba(255,255,255,0.8);
+box-shadow: 0 0 15px rgba(0,0,0,0.2);
+border-radius: 5px;
+line-height: 18px;
+color: #555;
+}
+.legend i {
+width: 18px;
+height: 18px;
+float: left;
+margin-right: 8px;
+opacity: 0.7;
+}
+.info {
+padding: 10px;
+background: rgba(255, 255, 255, 0.9);
+border-radius: 5px;
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+<label for="time-select">選擇預報時間：</label>
+<select id="time-select"></select>
+<span id="update-time" style="margin-left: 20px; font-size: 14px; color: #555;"></span>
+</div>
+
+<div id="map"></div>
+
+<script>
+// --- 全局變數 ---
+const HKO_RAINFALL_URL = 'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv';
+// 由於瀏覽器安全策略 (CORS)，直接從前端 JS 存取 HKO 數據可能會被阻擋。
+// 我們使用一個 CORS 代理來繞過這個問題，僅供示範用途。
+// 在正式的專案中，你應該建立自己的後端伺服器來處理數據請求。
+const CORS_PROXY = 'https://cors-anywhere.herokuapp.com/';
+const PROXY_URL = CORS_PROXY + HKO_RAINFALL_URL;
+
+let map;
+let rainfallLayerGroup;
+let allRainfallData = {}; // 儲存所有時間點的數據
+
+// --- 地圖初始化 ---
+document.addEventListener('DOMContentLoaded', function() {
+// 1. 初始化 Leaflet 地圖
+map = L.map('map').setView([22.3193, 114.1694], 10); // 中心點設為香港
+
+// 2. 加入底圖圖層 (使用 OpenStreetMap)
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
+
+// 3. 建立一個圖層組來存放雨量方格
+rainfallLayerGroup = L.layerGroup().addTo(map);
+
+// 4. 加入圖例
+addLegend();
+
+// 5. 加入資料來源資訊
+addInfoBox();
+
+// 6. 獲取並處理數據
+fetchRainfallData();
+
+// 7. 設定時間選擇器的變更事件
+document.getElementById('time-select').addEventListener('change', (event) => {
+const selectedTime = event.target.value;
+drawRainfallGrid(selectedTime);
+});
+});
+
+// --- 功能函式 ---
+
+// 獲取並解析雨量數據
+async function fetchRainfallData() {
+try {
+const response = await fetch(PROXY_URL);
+if (!response.ok) {
+throw new Error(`HTTP 錯誤! 狀態: ${response.status}`);
+}
+const csvText = await response.text();
+parseCSV(csvText);
+} catch (error) {
+console.error("無法獲取雨量數據:", error);
+alert("無法獲取天文台雨量數據。\n這可能是因為 CORS 代理伺服器繁忙或已關閉。\n請稍後再試或在自己的伺服器上運行此程式碼。");
+document.getElementById('update-time').innerText = '數據加載失敗';
+}
+}
+
+// 解析 CSV 文本
+function parseCSV(csvText) {
+const lines = csvText.trim().split('\n');
+
+// 獲取標頭 (時間點)
+const headers = lines[3].trim().split(',').slice(1); // "資料時間","+30min","+60min",...
+
+// 獲取更新時間
+const updateTimeInfo = lines[1].trim().split(',')[1];
+document.getElementById('update-time').innerText = `數據發佈時間: ${updateTimeInfo}`;
+
+// 初始化數據結構
+headers.forEach(header => {
+allRainfallData[header] = [];
+});
+
+// 解析每一行數據
+for (let i = 4; i < lines.length; i++) {
+const values = lines[i].trim().split(',');
+if (values.length > 1) {
+const lat = parseFloat(values[0].split(' ')[1]);
+const lon = parseFloat(values[0].split(' ')[3]);
+
+for (let j = 0; j < headers.length; j++) {
+const rainfall = parseInt(values[j + 1], 10);
+if (!isNaN(lat) && !isNaN(lon) && !isNaN(rainfall)) {
+allRainfallData[headers[j]].push({ lat, lon, rainfall });
+}
+}
+}
+}
+
+// 更新時間選擇器
+const timeSelect = document.getElementById('time-select');
+timeSelect.innerHTML = ''; // 清空選項
+headers.forEach(header => {
+const option = document.createElement('option');
+option.value = header;
+option.innerText = header.replace('+', '+ ').replace('min', ' 分鐘');
+timeSelect.appendChild(option);
+});
+
+// 預設繪製第一個時間點的數據
+if (headers.length > 0) {
+drawRainfallGrid(headers[0]);
+}
+}
+
+// 根據雨量值獲取顏色
+function getColor(rainfall) {
+if (rainfall > 100) return '#FF0000'; // 紅色 (大豪雨)
+if (rainfall > 70) return '#FF4500'; // 橙紅色 (豪雨)
+if (rainfall > 50) return '#FFFF00'; // 黃色 (大雨)
+if (rainfall > 30) return '#00FF00'; // 綠色 (中雨)
+if (rainfall > 10) return '#00BFFF'; // 深天藍 (小雨)
+if (rainfall > 0) return '#87CEFA'; // 淺天藍 (微雨)
+return null; // 透明 (無雨)
+}
+
+// 在地圖上繪製雨量網格
+function drawRainfallGrid(time) {
+// 清除舊的圖層
+rainfallLayerGroup.clearLayers();
+
+const data = allRainfallData[time];
+if (!data) return;
+
+// 網格大小約為 0.05 度
+const latStep = 0.05;
+const lonStep = 0.05;
+
+data.forEach(point => {
+const color = getColor(point.rainfall);
+if (color) {
+const bounds = [
+[point.lat - latStep / 2, point.lon - lonStep / 2],
+[point.lat + latStep / 2, point.lon + lonStep / 2]
+];
+L.rectangle(bounds, {
+color: color,
+weight: 0, // 無邊框
+fillOpacity: 0.5
+}).addTo(rainfallLayerGroup);
+}
+});
+}
+
+// 新增圖例控制項
+function addLegend() {
+const legend = L.control({position: 'bottomright'});
+legend.onAdd = function (map) {
+const div = L.DomUtil.create('div', 'info legend');
+const grades = [0, 10, 30, 50, 70, 100];
+const labels = ['微雨', '小雨', '中雨', '大雨', '豪雨', '大豪雨'];
+
+div.innerHTML += '<h4>雨量 (毫米/小時)</h4>';
+for (let i = 0; i < grades.length; i++) {
+div.innerHTML +=
+'<i style="background:' + getColor(grades[i] + 1) + '"></i> ' +
+labels[i] + '<br>';
+}
+return div;
+};
+legend.addTo(map);
+}
+
+// 新增資料來源資訊框
+function addInfoBox() {
+const info = L.control({position: 'bottomleft'});
+info.onAdd = function (map) {
+const div = L.DomUtil.create('div', 'info');
+div.innerHTML = '<h4>資料來源</h4>' +
+'香港天文台 (經 data.gov.hk)<br>' +
+'網格點降雨臨近預報';
+return div;
+};
+info.addTo(map);
+}
+
+</script>
+
+</body>
+</html>
