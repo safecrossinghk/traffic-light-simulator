@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>🌧️ 香港降兩預報</title>
+<title>🌧️ 香港降雨預報</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
 <style>
 body {
@@ -25,9 +25,17 @@ border-radius: 8px;
 border: 1px solid #ccc;
 }
 #rain-alert {
-margin: 1em;
+margin: 2em 1em 1em;
 font-size: 1.2em;
 font-weight: bold;
+line-height: 1.8em;
+white-space: pre-line;
+}
+#footer-text {
+margin: 1.5em;
+font-size: 0.9em;
+color: #555;
+line-height: 1.6em;
 }
 </style>
 </head>
@@ -36,9 +44,16 @@ font-weight: bold;
 <div id="map"></div>
 <div id="rain-alert">⏳ 正在讀取預報資料...</div>
 
+<!-- 文末三句 -->
+<div id="footer-text">
+本網站提供香港未來半小時內定點的降雨預測，<br>
+用戶可即時得知身處地點的降雨情況。<br>
+用戶請先開啟網頁的位置分享或手機的定位服務 資料來源：香港天文台
+</div>
+
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const workerUrl = 'https://crowdtest8.ctakwah.workers.dev/'; // 🔧 請改成你的實際 Worker 網址
+const workerUrl = 'https://crowdtest8.ctakwah.workers.dev/';
 
 const map = L.map('map').setView([22.3, 114.2], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -60,12 +75,11 @@ const alertDiv = document.getElementById('rain-alert');
 console.log("API 回傳資料：", data);
 
 if (data && typeof data.immediateRain === "number") {
-const rain = data.immediateRain.toFixed(1);
 if (data.rainExpected) {
-alertDiv.innerText = `⚠️ 你所在的位置將會有雨`;
+alertDiv.innerText = `⚠️ 你所在的位置將會有雨\n請留意天氣變化\n做好防雨準備`;
 speak("⚠️ 你附近有降雨");
 } else {
-alertDiv.innerText = `☁️ 你所在的位置暫時無雨`;
+alertDiv.innerText = `☁️ 你所在的位置暫時無雨\n請留意天氣變化\n保持關注最新預報`;
 }
 } else {
 alertDiv.innerText = "⚠️ 無法讀取預報資料";
@@ -79,7 +93,7 @@ document.getElementById('rain-alert').innerText = "⚠️ 無法取得預報資�
 
 function speak(text) {
 const msg = new SpeechSynthesisUtterance(text);
-msg.lang = 'zh-HK'; // ✅ 粵語語音
+msg.lang = 'zh-HK';
 speechSynthesis.speak(msg);
 }
 
@@ -119,11 +133,3 @@ initLocation();
 </script>
 </body>
 </html>
-
-
-本網站提供香港未來半小時內定點的降雨預測，用戶可即時得知身處地點的降雨情況。
-
-- 用戶請先開啟網頁的位置分享或手機的定位服務
-
-
-資料來源：香港天文台
