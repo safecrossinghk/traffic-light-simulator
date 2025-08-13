@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>香港 AI 颱風路徑預測（測試版）</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<style>
+body { margin:0; font-family:Arial, sans-serif; }
+#map { height: 100vh; }
+#control {
+position: absolute; top:10px; left:10px; background:white;
+padding:10px; z-index:1000; border-radius:4px; box-shadow:0 0 5px rgba(0,0,0,0.4);
+}
+input, button { margin:4px 0; width:100%; }
+</style>
+</head>
+<body>
+
+<div id="control">
+<h3>AI 颱風路徑預測</h3>
+<label>初始緯度：</label><input type="number" id="lat" value="23.0" step="0.1">
+<label>初始經度：</label><input type="number" id="lon" value="122.0" step="0.1">
+<label>初始方向 (°)：</label><input type="number" id="bearing" value="290" step="1">
+<label>速度 (節)：</label><input type="number" id="speed" value="12" step="0.1">
+<label>預測時長 (小時)：</label><input type="number" id="hours" value="48" step="6">
+<label>組合數量：</label><input type="number" id="ensembles" value="10">
+<button id="run">Run AI 預測</button>
+</div>
+
+<div id="map"></div>
+
+<script>
+const map = L.map('map').setView([22.3, 114.2], 6); // 香港中心
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+attribution: '&copy; OpenStreetMap contributors'
+}).addTo(map);
+
+function haversine(lat1, lon1, brng, distNm) {
+const R = 3440.065; // 海里半徑
+const d = distNm / R;
+const lat1r = lat1 * Math.PI / 180;
+const lon1r = lon1 * Math.PI / 180;
+const br = brng * Math.PI / 180;
+const lat2 = Math.asin(Math.sin(lat1r)*Math.cos(d) + Math.cos(lat1r)*Math.sin(d)*Math.cos(br));
+const lon2 = lon1r + Math.atan2(Math.sin(br)*Math.sin(d)*Math.cos(lat1r),
+Math.cos(d)-Math.sin(lat1r)*Math.sin(lat2));
+return [lat2 * 180 / Math.PI, lon2 * 180 / Math.PI];
+}
+
+function runForecast() {
+map.eachLayer(l => { if (!l._url) map.removeLayer(l); });
+
+const lat = parseFloat(document.getElementById('lat').value);
+const lon = parseFloat(document.getElementById('lon').value);
+const bearing = parseFloat(document.getElementById('bearing').value);
+const speed = parseFloat(document.getElementById('speed').value); // knots
+const hours = parseFloat(document.getElementById('hours').value);
+const ensembles = parseInt(document.getElementById('ensembles').value);
+
+const colors = ['red','blue','green','orange','purple','brown','cyan','magenta','pink','gray'];
+const ensemblePaths = [];
+
+for (let e=0; e<ensembles; e++) {
+let path = [[lat, lon]];
+let curLat = lat, curLon = lon;
+let br = bearing + (Math.random()-0.5)*20;
+let sp = speed * (0.8 + Math.random()*0.4);
+for (let t=6; t<=hours; t+=6) {
+[curLat, curLon] = haversine(curLat, curLon, br + (Math.random()-0.5)*10, sp*6);
+path.push([curLat, curLon]);
+}
+L.polyline(path, {color: colors[e % colors.length]}).addTo(map);
+ensemblePaths.push(path);
+}
+
+// 平均路徑
+const avgPath = [];
+for (let i=0; i<=hours/6; i++) {
+let sumLat=0, sumLon=0;
+ensemblePaths.forEach(p => { sumLat+=p[i][0]; sumLon+=p[i][1]; });
+avgPath.push([sumLat/ensembles, sumLon/ensembles]);
+}
+L.polyline(avgPath, {color:'black', weight:3}).addTo(map);
+}
+
+document.getElementById('run').addEventListener('click', runForecast);
+</script>
+
+</body>
+</html>
