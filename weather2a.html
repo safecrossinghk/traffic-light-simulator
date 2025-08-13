@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="zh-HK">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>香港 AI 颱風路徑測試版</title>
+<link
+rel="stylesheet"
+href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+crossorigin=""
+/>
+<style>
+html, body { height: 100%; margin: 0; }
+#map { height: calc(100% - 190px); }
+.panel {
+padding: 10px 12px;
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang HK", "Noto Sans TC", "Microsoft JhengHei", sans-serif;
+line-height: 1.4;
+border-bottom: 1px solid #eee;
+}
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.row > * { margin: 4px 0; }
+.small { font-size: 12px; opacity: 0.8; }
+button { padding: 6px 10px; cursor: pointer; }
+input[type=number] { width: 86px; }
+.badge {
+display: inline-block; padding: 2px 6px; border-radius: 6px; background: #f0f0f0; margin-right: 6px;
+}
+</style>
+</head>
+<body>
+<div class="panel">
+<div class="row">
+<div class="badge">原型</div>
+<strong>香港 AI 颱風路徑測試版</strong>
+</div>
+<div class="row">
+<label>上載初始 JSON：<input type="file" id="fileInput" accept=".json" /></label>
+<button id="btnUseBuiltIn">使用示例</button>
+<button id="btnRun">Run AI 預測</button>
+<button id="btnReset">清除圖層</button>
+</div>
+<div class="row">
+<div>初始 Bearing°：<input id="bearing" type="number" value="285" step="1" /></div>
+<div>初始 Speed (kt)：<input id="speed" type="number" value="12" step="0.5" /></div>
+<div>組合數量：<input id="nens" type="number" value="10" step="1" min="5" max="50" /></div>
+<div>預報時長：<input id="hours" type="number" value="48" step="6" min="12" max="120" /> 小時</div>
+</div>
+<div class="small">
+演算法：簡單外推 + 隨機擾動（bearing ±20°、速度 ±3kt），每 6h 步進；圈層為 ensemble 位置標準差的 2 倍近似。
+<br/>實際決策請以香港天文台 / JMA / CMA / JTWC 官方資訊為準。
+</div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+function toRad(d){ return d * Math.PI/180; }
+function toDeg(r){ return r * 180/Math.PI; }
+function destPoint(lat, lon, bearingDeg, distanceKm){
+const R = 6371.0;
+const brng = toRad(bearingDeg);
+const φ1 = toRad(lat), λ1 = toRad(lon);
+const δ = distanceKm / R;
+const φ2 = Math.asin( Math.sin(φ1)*Math.cos(δ) + Math.cos(φ1)*Math.sin(δ)*Math.cos(brng) );
+const λ2 = λ1 + Math.atan2(Math.sin(brng)*Math.sin(δ)*Math.cos(φ1), Math.cos(δ)-Math.sin(φ1)*Math.sin(φ2));
+return {lat: toDeg(φ2), lon: ((toDeg(λ2)+540)%360)-180};
+}
+function knToKmh(kn){ return kn*1.852; }
+
+const map = L.map('map').setView([22.3, 114.2], 6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+maxZoom: 10,
+attribution: '&copy; OpenStreetMap'
+}).addTo(map);
+
+const layers = { meanTrack: null, circles: [], members: [] };
+function clearLayers(){
+if(layers.meanTrack){ map.removeLayer(layers.meanTrack); layers.meanTrack=null; }
+layers.circles.forEach(c => map.removeLayer(c));
+layers.circles = [];
+layers.members.forEach(m => map.removeLayer(m));
+layers.members = [];
+}
+
+let init = null;
+const builtIn = {
+"name": "楊柳 (Yangliu / Podul)",
+"time_iso": "2025-08-13T00:00:00+08:00",
+"lat": 23.0,
+"lon": 123.5,
+"speed_kts": 12.0,
+"bearing_deg": 285.0,
+"pressure_hpa": 980,
+"max_wind_kt": 60
+};
+
+document.getElementById('fileInput').addEventListener('change', async (e)=>{
+const file = e.target.files[0];
+if(!file) return;
+const txt = await file.text();
+try{ init = JSON.parse(txt); alert('已載入自訂初始資料'); }
+catch(err){ alert('JSON 解析失敗：' + err.message); }
+});
+
+document.getElementById('btnUseBuiltIn').addEventListener('click', ()=>{
+init = builtIn;
+document.getElementById('bearing').value = init.bearing_deg ?? 285;
+document.getElementById('speed').value = init.speed_kts ?? 12;
+alert('已載入示例初始資料');
+});
+
+document.getElementById('btnReset').addEventListener('click', clearLayers);
+
+document.getElementById('btnRun').addEventListener('click', ()=>{
+if(!init){ alert('請先載入初始 JSON 或按「使用示例」'); return; }
+clearLayers();
+
+const ensN = Math.max(5, Math.min(50, +document.getElementById('nens').value || 10));
+const totalH = Math.max(12, Math.min(120, +document.getElementById('hours').value || 48));
+const stepH = 6;
+const baseBearing = +document.getElementById('bearing').value || init.bearing_deg || 285;
+const baseSpeedKt = +document.getElementById('speed').value || init.speed_kts || 12;
+
+const ensemble = [];
+for(let m=0; m<ensN; m++){
+const bPert = (Math.random()*40 - 20);
+const sPert = (Math.random()*6 - 3);
+const bearing = baseBearing + bPert;
+const speedKt = Math.max(2, baseSpeedKt + sPert);
+const spdKmh = knToKmh(speedKt);
+
+const pts = [{lat: init.lat, lon: init.lon}];
+for(let h=stepH; h<=totalH; h+=stepH){
+const distKm = spdKmh * (stepH/1.0);
+const last = pts[pts.length-1];
+const nxt = destPoint(last.lat, last.lon, bearing + (Math.random()*6-3), distKm);
+pts.push(nxt);
+}
+ensemble.push(pts);
+}
+
+ensemble.forEach(pts => {
+const poly = L.polyline(pts.map(p=>[p.lat, p.lon]), {opacity:0.3, weight:2});
+poly.addTo(map);
+layers.members.push(poly);
+});
+
+const steps = ensemble[0].length;
+const meanPts = [];
+for(let i=0;i<steps;i++){
+let sumLat=0, sumLon=0;
+ensemble.forEach(tr => { sumLat += tr[i].lat; sumLon += tr[i].lon; });
+meanPts.push([sumLat/ensN, sumLon/ensN]);
+}
+layers.meanTrack = L.polyline(meanPts, {weight:4}).addTo(map);
+map.fitBounds(layers.meanTrack.getBounds(), {padding:[20,20]});
+
+const marksH = [12,24,36,48].filter(h=>h<=totalH);
+marksH.forEach(hh => {
+const idx = Math.round(hh/stepH);
+const latArr = ensemble.map(tr=>tr[idx].lat);
+const lonArr = ensemble.map(tr=>tr[idx].lon);
+const meanLat = latArr.reduce((a,b)=>a+b,0)/ensN;
+const meanLon = lonArr.reduce((a,b)=>a+b,0)/ensN;
+
+const R = 6371.0;
+const rad = Math.PI/180;
+const x = lonArr.map(lon => (lon-meanLon)*Math.cos(meanLat*rad)*R);
+const y = latArr.map(lat => (lat-meanLat)*R);
+const stdKm = Math.sqrt(
+(x.reduce((s,v)=>s+v*v,0) + y.reduce((s,v)=>s+v*v,0)) / (2*ensN)
+);
+const radiusKm = Math.max(50, 2*stdKm);
+
+const circle = L.circle([meanLat, meanLon], {radius: radiusKm*1000, fillOpacity:0.08});
+circle.bindTooltip(`${hh}h 潛在範圍（~${radiusKm.toFixed(0)} km）`);
+circle.addTo(map);
+layers.circles.push(circle);
+});
+
+const start = L.circleMarker([init.lat, init.lon], {radius:6}).addTo(map);
+start.bindTooltip(`${init.name || 'Storm'}\n${init.time_iso || ''}\nLat ${init.lat}, Lon ${init.lon}\nP ${init.pressure_hpa || '?'}hPa | Vmax ${init.max_wind_kt || '?'}kt`).openTooltip();
+layers.members.push(start);
+});
+</script>
+</body>
+</html>
