@@ -77,10 +77,10 @@ console.log("API 回傳資料：", data);
 
 if (data && typeof data.immediateRain === "number") {
 if (data.rainExpected) {
-alertDiv.innerText = `⚠️ 你所在的位置將會有雨;
+alertDiv.innerText = `⚠️ 你所在的位置將會有雨`;
 speak("⚠️ 你附近有降雨");
 } else {
-alertDiv.innerText = `☁️ 你所在的位置暫時無雨;
+alertDiv.innerText = `☁️ 你所在的位置暫時無雨`;
 }
 } else {
 alertDiv.innerText = "⚠️ 系統繁忙，請稍後再試";
