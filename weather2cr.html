@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>楊柳 AI 路徑預測測試版</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 20px; }
+button { padding: 10px 20px; font-size: 16px; margin-bottom: 10px; }
+#status { margin-top: 10px; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h2>楊柳 AI 路徑預測測試版</h2>
+<button onclick="loadLatestFix()">載入最新楊柳定點</button>
+<div id="status">尚未載入定點</div>
+
+<script>
+let init = {}; // 颱風初始資料變數
+
+async function loadLatestFix() {
+try {
+// HKO 熱帶氣旋定點 API 範例（請替換為實際 endpoint）
+const resp = await fetch('https://www.weather.gov.hk/wxinfo/currwx/tc_list.xml');
+const xmlText = await resp.text();
+const parser = new DOMParser();
+const xml = parser.parseFromString(xmlText, 'application/xml');
+
+// 假設 XML 節點名稱，實際需依 HKO 返回結構修改
+const tcList = xml.querySelectorAll('TropicalCyclone');
+let yangliu = Array.from(tcList).find(tc => tc.querySelector('Name').textContent.includes('楊柳'));
+if (!yangliu) {
+document.getElementById('status').innerText = '暫無楊柳颱風資料';
+return;
+}
+
+const lat = parseFloat(yangliu.querySelector('Latitude').textContent);
+const lon = parseFloat(yangliu.querySelector('Longitude').textContent);
+const time = yangliu.querySelector('Time').textContent;
+
+init = { lat, lon, time_iso: time, name: '楊柳' };
+
+document.getElementById('status').innerText =
+`已載入楊柳最新定點：${lat.toFixed(2)}, ${lon.toFixed(2)} @ ${time}`;
+
+console.log('init:', init);
+
+// 這裡可以呼叫你的 AI 路徑預測函式，例如：predictPath(init);
+
+} catch (err) {
+console.error(err);
+document.getElementById('status').innerText = '載入失敗，請檢查 API';
+}
+}
+</script>
+
+</body>
+</html>
