@@ -40,20 +40,21 @@ line-height: 1.6em;
 </style>
 </head>
 <body>
-<h1>🌂 香港降雨預報 (試用版)</h1>
+<h1>🌂 香港降雨預報</h1>
 <div id="map"></div>
 <div id="rain-alert">⏳ 正在讀取預報資料...</div>
 
 <!-- 文末三句 -->
 <div id="footer-text">
-本網站提供香港未來半小時內定點的降雨預測，<br>
-用戶可即時得知身處地點的降雨情況。<br>
-用戶請先開啟網頁的位置分享或手機的定位服務 資料來源：香港天文台
+本網站提供香港未來半小時內定點的降雨預測，用戶可即時得知身處地點的降雨情況。<br>
+* 用戶請先開啟網頁的位置分享或手機的定位服務<br>
+
+資料來源：香港天文台
 </div>
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const workerUrl = 'https://crowdtest8b.ctakwah.workers.dev/';
+const workerUrl = 'https://crowdtest8.ctakwah.workers.dev/';
 
 const map = L.map('map').setView([22.3, 114.2], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -76,18 +77,18 @@ console.log("API 回傳資料：", data);
 
 if (data && typeof data.immediateRain === "number") {
 if (data.rainExpected) {
-alertDiv.innerText = `⚠️ 你所在的位置將會有雨\n請留意天氣變化\n做好防雨準備`;
+alertDiv.innerText = `⚠️ 你所在的位置將會有雨;
 speak("⚠️ 你附近有降雨");
 } else {
-alertDiv.innerText = `☁️ 你所在的位置暫時無雨\n請留意天氣變化\n保持關注最新預報`;
+alertDiv.innerText = `☁️ 你所在的位置暫時無雨;
 }
 } else {
-alertDiv.innerText = "⚠️ 無法讀取預報資料";
+alertDiv.innerText = "⚠️ 系統繁忙，請稍後再試";
 }
 })
 .catch(err => {
 console.error("讀取預報錯誤", err);
-document.getElementById('rain-alert').innerText = "⚠️ 無法取得預報資料";
+document.getElementById('rain-alert').innerText = "⚠️ 系統繁忙，請稍後再試";
 });
 }
 
