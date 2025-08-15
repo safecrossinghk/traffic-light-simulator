@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<title>實時巴士追蹤：九巴 2B / 城巴 701A</title>
+<style>
+#map { height: 80vh; width: 100%; }
+#info { padding: 10px; font-size: 16px; }
+select { font-size: 16px; padding: 5px; }
+</style>
+</head>
+<body>
+<h3>🚌 實時追蹤：九巴 2B / 城巴 701A（雙向）</h3>
+<div>
+<select id="routeSelect">
+<option value="KMB_2B_1">KMB 2B 去向1</option>
+<option value="KMB_2B_2">KMB 2B 去向2</option>
+<option value="CTB_701A_1">Citybus 701A 去向1</option>
+<option value="CTB_701A_2">Citybus 701A 去向2</option>
+</select>
+<button onclick="loadBusData()">載入資料</button>
+</div>
+<div id="map"></div>
+<div id="info">資料載入中...</div>
+
+<script>
+let map;
+let markers = [];
+
+function initMap() {
+map = new google.maps.Map(document.getElementById('map'), {
+zoom: 13,
+center: { lat: 22.318, lng: 114.169 } // 預設九龍
+});
+}
+
+async function loadBusData() {
+const selectValue = document.getElementById('routeSelect').value;
+let apiUrl = "";
+if (selectValue.startsWith("KMB")) {
+const route = "2B";
+const bound = selectValue.endsWith("_1") ? "O" : "I";
+apiUrl = `https://data.etabus.gov.hk/v1/transport/kmb/eta/${route}/${bound}`;
+} else {
+const route = "701A";
+const bound = selectValue.endsWith("_1") ? "O" : "I";
+apiUrl = `https://rt.data.gov.hk/v1/transport/citybus/eta/CTB/${route}/${bound}`;
+}
+
+document.getElementById('info').innerHTML = "資料載入中...";
+clearMarkers();
+
+try {
+const response = await fetch(apiUrl);
+const data = await response.json();
+
+if (!data || !data.data || data.data.length === 0) {
+document.getElementById('info').innerHTML = "暫無班次";
+return;
+}
+
+let infoHtml = "";
+data.data.forEach(bus => {
+if (bus.eta) {
+const etaTime = new Date(bus.eta);
+const diffMin = Math.round((etaTime - new Date()) / 60000);
+infoHtml += `${bus.route}：${diffMin} 分鐘後到達 (${bus.dest_tc})<br>`;
+}
+});
+document.getElementById('info').innerHTML = infoHtml || "暫無班次";
+
+// 測試座標顯示（假設每個 API 提供 lat/lon，否則需額外查詢）
+data.data.forEach(bus => {
+if (bus.lat && bus.long) {
+const lat = Number(bus.lat);
+const lng = Number(bus.long);
+if (!isNaN(lat) && !isNaN(lng)) {
+const marker = new google.maps.Marker({
+position: { lat: lat, lng: lng },
+map: map,
+title: bus.route
+});
+markers.push(marker);
+}
+}
+});
+
+} catch (err) {
+console.error(err);
+document.getElementById('info').innerHTML = "資料獲取失敗";
+}
+}
+
+function clearMarkers() {
+markers.forEach(marker => marker.setMap(null));
+markers = [];
+}
+</script>
+
+<script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCe2towtdCB_tiGtfXFQbdk9Kq63T3D2UU&callback=initMap"></script>
+</body>
+</html>
