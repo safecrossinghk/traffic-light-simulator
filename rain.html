@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>🌧️ 香港降雨預報</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+
 <style>
 body {
 font-family: "Helvetica Neue", sans-serif;
@@ -38,7 +39,19 @@ color: #555;
 line-height: 1.6em;
 }
 </style>
+
+<!-- OneSignal SDK -->
+<script src="https://cdn.onesignal.com/sdks/OneSignalSDK.js" async=""></script>
+<script>
+window.OneSignal = window.OneSignal || [];
+OneSignal.push(function() {
+OneSignal.init({
+appId: "880241cd-cc45-4820-b5ec-a1236b0e3e98",
+});
+});
+</script>
 </head>
+
 <body>
 <h1>🌂 香港降雨預報</h1>
 <div id="map"></div>
@@ -46,12 +59,9 @@ line-height: 1.6em;
 
 <!-- 文末三句 -->
 <div id="footer-text">
-<!-- 本網站說明（置左） -->
 <p style="text-align: left; margin-bottom: 1.5em;">
 本網站提供香港未來半小時內定點的降雨預測，用戶可即時得知身處地點的降雨情況。
 </p>
-
-<!-- 底部提示（置左，每行之間加空行） -->
 <p style="text-align: left; margin-bottom: 1.5em;">
 * 用戶請先開啟網頁的位置分享或手機的定位服務
 </p>
@@ -62,7 +72,7 @@ line-height: 1.6em;
 
 <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 <script>
-const workerUrl = 'https://crowdtest8.ctakwah.workers.dev/';
+const workerUrl = 'https://crowdtest9a.ctakwah.workers.dev/';
 
 const map = L.map('map').setView([22.3, 114.2], 11);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -70,6 +80,7 @@ attribution: '&copy; OpenStreetMap contributors'
 }).addTo(map);
 
 let marker;
+let rainStatus = 0; // 0 = 無雨，1 = 已推送過
 
 function setMarker(lat, lon) {
 if (marker) map.removeLayer(marker);
@@ -84,11 +95,18 @@ const alertDiv = document.getElementById('rain-alert');
 console.log("API 回傳資料：", data);
 
 if (data && typeof data.immediateRain === "number") {
-if (data.rainExpected) {
+if (data.immediateRain > 2) {
 alertDiv.innerText = `⚠️ 你所在的位置將會有雨`;
+
+if (rainStatus === 0) {
+// 第一次由無雨 → 有雨，觸發語音 & 推送
 speak("⚠️ 你附近有降雨");
+sendPush();
+rainStatus = 1;
+}
 } else {
 alertDiv.innerText = `☁️ 你所在的位置暫時無雨`;
+rainStatus = 0; // reset
 }
 } else {
 alertDiv.innerText = "⚠️ 系統繁忙，請稍後再試";
@@ -104,6 +122,17 @@ function speak(text) {
 const msg = new SpeechSynthesisUtterance(text);
 msg.lang = 'zh-HK';
 speechSynthesis.speak(msg);
+}
+
+function sendPush() {
+OneSignal.push(function() {
+OneSignal.sendSelfNotification(
+"⚠️ 降雨提示",
+"你所在的位置將會有雨",
+'https://safecrossinghk.github.io/traffic-light-simulator/rain.html',
+'https://cdn-icons-png.flaticon.com/512/1146/1146869.png'
+);
+});
 }
 
 function initLocation() {
