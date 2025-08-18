@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>香港未來半小時降雨預測</title>
+
+<!-- CSS 樣式 -->
+<style>
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+margin: 0;
+background-color: #f0f2f5;
+color: #333;
+}
+
+.container {
+text-align: center;
+background: white;
+padding: 40px;
+border-radius: 12px;
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+max-width: 400px;
+width: 90%;
+}
+
+h1 {
+color: #1a73e8;
+margin-bottom: 1rem;
+}
+
+p {
+line-height: 1.6;
+margin-bottom: 1.5rem;
+}
+
+#checkWeatherBtn, #proxyBtn {
+background-color: #1a73e8;
+color: white;
+border: none;
+padding: 12px 24px;
+border-radius: 8px;
+font-size: 16px;
+cursor: pointer;
+transition: background-color 0.3s ease;
+display: block;
+width: 100%;
+margin-bottom: 10px;
+}
+
+#proxyBtn {
+background-color: #ff9800;
+}
+
+#proxyBtn:hover {
+background-color: #e68900;
+}
+
+#checkWeatherBtn:hover {
+background-color: #155ab6;
+}
+
+#checkWeatherBtn:disabled {
+background-color: #9dbef2;
+cursor: not-allowed;
+}
+
+.hidden {
+display: none;
+}
+
+#result {
+margin-top: 20px;
+padding: 15px;
+border-radius: 8px;
+font-size: 18px;
+font-weight: bold;
+min-height: 50px;
+display: flex;
+justify-content: center;
+align-items: center;
+flex-direction: column;
+}
+
+.result-yes { background-color: #e6f7ff; color: #1d39c4; border: 1px solid #91d5ff; }
+.result-no { background-color: #f6ffed; color: #389e0d; border: 1px solid #b7eb8f; }
+.result-error { background-color: #fff1f0; color: #cf1322; border: 1px solid #ffa39e; }
+.result-loading { color: #555; background-color: #fafafa; border: 1px solid #d9d9d9; }
+.result-info { background-color: #e6f7ff; color: #096dd9; border: 1px solid #91d5ff; }
+
+</style>
+</head>
+<body>
+<!-- HTML 結構 -->
+<div class="container">
+<h1>未來半小時會下雨嗎？</h1>
+
+<div id="proxy-section">
+<p>首次使用前，請先點擊下方按鈕啟用數據代理服務。</p>
+<button id="proxyBtn">1. 啟用數據代理</button>
+</div>
+
+<div id="main-section" class="hidden">
+<p>點擊按鈕，獲取您目前位置的降雨預測。</p>
+<button id="checkWeatherBtn">2. 立即檢查</button>
+</div>
+
+<div id="result">
+<p>請按步驟操作。</p>
+</div>
+</div>
+
+<!-- JavaScript 邏輯 -->
+<script>
+const checkWeatherBtn = document.getElementById('checkWeatherBtn');
+const proxyBtn = document.getElementById('proxyBtn');
+const resultDiv = document.getElementById('result');
+const proxySection = document.getElementById('proxy-section');
+const mainSection = document.getElementById('main-section');
+
+const PROXY_URL = 'https://cors-anywhere.herokuapp.com/';
+const PROXY_ACTIVATION_URL = 'https://cors-anywhere.herokuapp.com/corsdemo';
+
+// 步驟1: 點擊按鈕啟用代理
+proxyBtn.addEventListener('click', () => {
+window.open(PROXY_ACTIVATION_URL, '_blank');
+resultDiv.innerHTML = '<p>請在新分頁中點擊 "Request temporary access to the demo server" 按鈕，然後返回此頁面繼續。</p>';
+resultDiv.className = 'result-info';
+proxySection.classList.add('hidden');
+mainSection.classList.remove('hidden');
+});
+
+// 步驟2: 點擊按鈕檢查天氣
+checkWeatherBtn.addEventListener('click', () => {
+checkWeatherBtn.disabled = true;
+checkWeatherBtn.textContent = '正在處理中...';
+resultDiv.innerHTML = '正在獲取您的位置...';
+resultDiv.className = 'result-loading';
+getWeatherPrediction();
+});
+
+async function getWeatherPrediction() {
+try {
+const position = await getUserLocation();
+const { latitude, longitude } = position.coords;
+resultDiv.innerHTML = '位置已獲取，正在轉換坐標...';
+
+const hk1980Coords = await convertToHK1980(latitude, longitude);
+resultDiv.innerHTML = '坐標轉換成功，正在下載雨量數據...';
+
+const rainfall = await getRainfallData(hk1980Coords.hkE, hk1980Coords.hkN);
+displayResult(rainfall);
+
+} catch (error) {
+console.error("發生錯誤:", error);
+let errorMessage = `錯誤：${error.message}`;
+if (error.message.includes("Failed to fetch")) {
+errorMessage += "<br><br>這可能是因為數據代理服務未啟用或已過期。請嘗試重新點擊上方的啟用按鈕。";
+}
+resultDiv.innerHTML = errorMessage;
+resultDiv.className = 'result-error';
+} finally {
+checkWeatherBtn.disabled = false;
+checkWeatherBtn.textContent = '再次檢查';
+}
+}
+
+function getUserLocation() {
+return new Promise((resolve, reject) => {
+if (!navigator.geolocation) {
+return reject(new Error('您的瀏覽器不支援地理位置功能。'));
+}
+navigator.geolocation.getCurrentPosition(resolve, reject, {
+enableHighAccuracy: true,
+timeout: 10000,
+maximumAge: 0
+});
+});
+}
+
+async function fetchWithProxy(url) {
+const response = await fetch(PROXY_URL + url);
+if (!response.ok) {
+// 如果代理伺服器返回錯誤 (例如 403 Forbidden, 404 Not Found)
+// 這通常意味著臨時存取權限未啟用或已過期
+if (response.status === 403) {
+throw new Error('數據代理服務拒絕存取。請確認您已點擊啟用按鈕獲取臨時權限。');
+}
+throw new Error(`網絡請求失敗，狀態碼: ${response.status}`);
+}
+return response;
+}
+
+async function convertToHK1980(lat, lon) {
+const geodeticApiUrl = `https://www.geodetic.gov.hk/api/v2/transformation?from_epsg=4326&to_epsg=2326&x=${lon}&y=${lat}`;
+const response = await fetchWithProxy(geodeticApiUrl);
+const data = await response.json();
+return { hkE: data.hkE, hkN: data.hkN };
+}
+
+async function getRainfallData(easting, northing) {
+const hkoApiUrl = 'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv';
+const response = await fetchWithProxy(hkoApiUrl);
+const csvData = await response.text();
+
+const originE = 794000, originN = 794000, gridSize = 1000;
+const col = Math.floor((easting - originE) / gridSize);
+const row = Math.floor((northing - originN) / gridSize);
+
+if (col < 0 || col >= 512 || row < 0 || row >= 512) {
+throw new Error('您的位置不在香港雨量預報範圍內。');
+}
+
+const gridId = row * 512 + col + 1;
+const lines = csvData.split('\n');
+for (let i = 1; i < lines.length; i++) {
+const parts = lines[i].split(',');
+if (parseInt(parts[0], 10) === gridId) {
+return parseFloat(parts[1]);
+}
+}
+
+throw new Error('在數據中找不到您位置對應的雨量網格。');
+}
+
+function displayResult(rainfall) {
+if (rainfall > 0.5) {
+resultDiv.innerHTML = `預測：未來半小時內 **將會下雨**。<br>預測雨量: ${rainfall.toFixed(2)} mm/hr`;
+resultDiv.className = 'result-yes';
+} else {
+resultDiv.innerHTML = `預測：未來半小時內 **不會下雨**。<br>預測雨量: ${rainfall.toFixed(2)} mm/hr`;
+resultDiv.className = 'result-no';
+}
+}
+</script>
+</body>
+</html>
