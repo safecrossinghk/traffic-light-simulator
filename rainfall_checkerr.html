@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>香港未來半小時降雨預測</title>
+
+<!-- CSS 樣式 -->
+<style>
+body {
+font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+display: flex;
+justify-content: center;
+align-items: center;
+height: 100vh;
+margin: 0;
+background-color: #f0f2f5;
+color: #333;
+}
+
+.container {
+text-align: center;
+background: white;
+padding: 40px;
+border-radius: 12px;
+box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+max-width: 400px;
+width: 90%;
+}
+
+h1 {
+color: #1a73e8;
+margin-bottom: 1rem;
+}
+
+p {
+line-height: 1.6;
+margin-bottom: 1.5rem;
+}
+
+#checkWeatherBtn {
+background-color: #1a73e8;
+color: white;
+border: none;
+padding: 12px 24px;
+border-radius: 8px;
+font-size: 16px;
+cursor: pointer;
+transition: background-color 0.3s ease;
+}
+
+#checkWeatherBtn:hover {
+background-color: #155ab6;
+}
+
+#checkWeatherBtn:disabled {
+background-color: #9dbef2;
+cursor: not-allowed;
+}
+
+#result {
+margin-top: 20px;
+padding: 15px;
+border-radius: 8px;
+font-size: 18px;
+font-weight: bold;
+min-height: 50px; /* 避免內容變動時跳動 */
+display: flex;
+justify-content: center;
+align-items: center;
+}
+
+.result-yes {
+background-color: #e6f7ff;
+color: #1d39c4;
+border: 1px solid #91d5ff;
+}
+
+.result-no {
+background-color: #f6ffed;
+color: #389e0d;
+border: 1px solid #b7eb8f;
+}
+
+.result-error {
+background-color: #fff1f0;
+color: #cf1322;
+border: 1px solid #ffa39e;
+}
+
+.result-loading {
+color: #555;
+background-color: #fafafa;
+border: 1px solid #d9d9d9;
+}
+</style>
+</head>
+<body>
+<!-- HTML 結構 -->
+<div class="container">
+<h1>未來半小時會下雨嗎？</h1>
+<p>點擊按鈕，獲取您目前位置的降雨預測。</p>
+<button id="checkWeatherBtn">立即檢查</button>
+<div id="result">
+<p>請允許瀏覽器獲取您的位置。</p>
+</div>
+</div>
+
+<!-- JavaScript 邏輯 -->
+<script>
+const checkWeatherBtn = document.getElementById('checkWeatherBtn');
+const resultDiv = document.getElementById('result');
+
+// **公共代理伺服器 URL**
+const PROXY_URL = 'https://api.allorigins.win/raw?url=';
+
+checkWeatherBtn.addEventListener('click', () => {
+checkWeatherBtn.disabled = true;
+checkWeatherBtn.textContent = '正在處理中...';
+resultDiv.innerHTML = '正在獲取您的位置...';
+resultDiv.className = 'result-loading';
+getWeatherPrediction();
+});
+
+async function getWeatherPrediction() {
+try {
+const position = await getUserLocation();
+const { latitude, longitude } = position.coords;
+resultDiv.innerHTML = '位置已獲取，正在轉換坐標...';
+
+const hk1980Coords = await convertToHK1980(latitude, longitude);
+resultDiv.innerHTML = '坐標轉換成功，正在下載雨量數據...';
+
+const rainfall = await getRainfallData(hk1980Coords.hkE, hk1980Coords.hkN);
+displayResult(rainfall);
+
+} catch (error) {
+console.error("發生錯誤:", error);
+resultDiv.innerHTML = `錯誤：${error.message}`;
+resultDiv.className = 'result-error';
+} finally {
+checkWeatherBtn.disabled = false;
+checkWeatherBtn.textContent = '再次檢查';
+}
+}
+
+function getUserLocation() {
+return new Promise((resolve, reject) => {
+if (!navigator.geolocation) {
+reject(new Error('您的瀏覽器不支援地理位置功能。'));
+}
+const options = {
+enableHighAccuracy: true,
+timeout: 10000,
+maximumAge: 0
+};
+navigator.geolocation.getCurrentPosition(resolve, reject, options);
+});
+}
+
+// 2. 坐標轉換 API - **已修正**
+async function convertToHK1980(lat, lon) {
+const geodeticApiUrl = `https://www.geodetic.gov.hk/api/v2/transformation?from_epsg=4326&to_epsg=2326&x=${lon}&y=${lat}`;
+
+// **修正點：將地政總署的 API 請求也透過代理發送**
+const response = await fetch(PROXY_URL + encodeURIComponent(geodeticApiUrl));
+
+if (!response.ok) {
+throw new Error('坐標轉換服務失敗，請稍後再試。');
+}
+const data = await response.json();
+return { hkE: data.hkE, hkN: data.hkN };
+}
+
+// 3. 獲取雨量數據並分析
+async function getRainfallData(easting, northing) {
+const hkoApiUrl = 'https://data.weather.gov.hk/weatherAPI/hko_data/F3/Gridded_rainfall_nowcast_tc.csv';
+
+// 將天文台的 API 請求透過代理發送
+const response = await fetch(PROXY_URL + encodeURIComponent(hkoApiUrl));
+
+if (!response.ok) {
+throw new Error('無法從天文台下載雨量數據，請稍後再試。');
+}
+const csvData = await response.text();
+
+const originE = 794000;
+const originN = 794000;
+const gridSize = 1000;
+
+const col = Math.floor((easting - originE) / gridSize);
+const row = Math.floor((northing - originN) / gridSize);
+
+if (col < 0 || col >= 512 || row < 0 || row >= 512) {
+throw new Error('您的位置不在香港雨量預報範圍內。');
+}
+
+const gridId = row * 512 + col + 1;
+const lines = csvData.split('\n');
+
+for (let i = 1; i < lines.length; i++) {
+const parts = lines[i].split(',');
+if (parseInt(parts[0], 10) === gridId) {
+return parseFloat(parts[1]);
+}
+}
+
+throw new Error('在數據中找不到您位置對應的雨量網格。');
+}
+
+// 4. 顯示最終結果
+function displayResult(rainfall) {
+if (rainfall > 0.5) {
+resultDiv.innerHTML = `預測：未來半小時內 **將會下雨**。<br>預測雨量: ${rainfall.toFixed(2)} mm/hr`;
+resultDiv.className = 'result-yes';
+} else {
+resultDiv.innerHTML = `預測：未來半小時內 **不會下雨**。<br>預測雨量: ${rainfall.toFixed(2)} mm/hr`;
+resultDiv.className = 'result-no';
+}
+}
+</script>
+</body>
+</html>
